@@ -1,205 +1,168 @@
-"use client";
+'use client';   
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoadingSpinner } from "@/components/loading-spinner";
-import { Copy, Send, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { Mail, Sparkles, Send, Loader2, Copy, Check } from "lucide-react";
 
-interface GeneratedEmail {
-  subject: string;
-  body: string;
-}
-
-export default function GeneratePage() {
+export default function EmailGenerator() {
   const [prompt, setPrompt] = useState("");
-  const [generatedEmail, setGeneratedEmail] = useState<GeneratedEmail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [editedSubject, setEditedSubject] = useState("");
-  const [editedBody, setEditedBody] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [generatedEmail, setGeneratedEmail] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      toast.error("Please enter a prompt");
-      return;
-    }
+    if (!prompt.trim()) return;
+    setIsGenerating(true);
+    setStatus(null);
 
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Simulate AI generation (replace with real AI call)
+    await new Promise((r) => setTimeout(r, 1500));
 
-    const mockEmails = [
-      {
-        subject: "Meeting Request: Project Discussion",
-        body: "Hi there,\\n\\nI hope this email finds you well. I wanted to reach out regarding our upcoming project discussion. Would you be available for a meeting next week to align on our goals and timeline?\\n\\nPlease let me know what works best for your schedule.\\n\\nBest regards",
-      },
-      {
-        subject: "Exciting Opportunity to Collaborate",
-        body: "Hello,\\n\\nI came across your work and was impressed by your approach. I believe we could create something valuable together. Would you be interested in discussing a potential collaboration?\\n\\nLooking forward to hearing from you.\\n\\nWarm regards",
-      },
-      {
-        subject: "Proposal for Q2 Initiative",
-        body: "Dear Team,\\n\\nI'd like to propose a new initiative for Q2 that could significantly improve our workflow. I've attached a preliminary outline and would love to get your feedback.\\n\\nWhen would be a good time to discuss this further?\\n\\nThank you",
-      },
-    ];
-
-    const randomEmail = mockEmails[Math.floor(Math.random() * mockEmails.length)];
-    setGeneratedEmail(randomEmail);
-    setEditedSubject(randomEmail.subject);
-    setEditedBody(randomEmail.body);
-    setIsLoading(false);
-    toast.success("Email generated successfully!");
+    const generated = `Subject: ${prompt.trim()}\n\nDear Recipient,\n\nI hope this email finds you well. ${prompt.trim()}\n\nPlease don't hesitate to reach out if you have any questions or need further clarification.\n\nBest regards`;
+    setGeneratedEmail(generated);
+    setIsGenerating(false);
   };
 
-  const handleCopySubject = () => {
-    navigator.clipboard.writeText(editedSubject);
-    toast.success("Subject copied to clipboard");
+  const handleSend = async () => {
+    if (!generatedEmail.trim() || !recipientEmail.trim()) return;
+    setIsSending(true);
+    setStatus(null);
+
+    // Simulate sending (replace with real send logic)
+    await new Promise((r) => setTimeout(r, 1200));
+
+    setStatus({ type: "success", message: `Email sent to ${recipientEmail}` });
+    setIsSending(false);
   };
 
-  const handleCopyBody = () => {
-    navigator.clipboard.writeText(editedBody);
-    toast.success("Email body copied to clipboard");
-  };
-
-  const handleSend = () => {
-    toast.success("Email sent successfully!");
-    setPrompt("");
-    setGeneratedEmail(null);
-    setEditedSubject("");
-    setEditedBody("");
-  };
-
-  const handleRegenerate = () => {
-    handleGenerate();
+  const handleCopy = () => {
+    navigator.clipboard.writeText(generatedEmail);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* ✅ Static page header — no longer sticky, layout handles offset */}
-      <div className="bg-background/80 backdrop-blur-xl border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Generate Email
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl space-y-8">
+        {/* Header */}
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-2">
+            <Mail className="w-7 h-7 text-primary" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            AI Email Generator
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Describe what you want to say and let AI write your email
+          <p className="text-muted-foreground text-base max-w-md mx-auto">
+            Describe what you want to say — get a professional email instantly.
           </p>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Input Section */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">What do you want to say?</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  placeholder="e.g., Write a professional email requesting a meeting with my manager to discuss project updates..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="min-h-[200px] resize-none"
-                />
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isLoading || !prompt.trim()}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  {isLoading ? (
-                    <LoadingSpinner />
-                  ) : (
-                    <>
-                      Generate Email
-                      <span className="ml-2">✨</span>
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+        {/* Main Card */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6 md:p-8 space-y-6">
+          {/* Recipient */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">To</label>
+            <Input
+              type="email"
+              placeholder="recipient@example.com"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+              className="h-11"
+            />
           </div>
 
-          {/* Output Section */}
-          <div className="space-y-4">
-            {generatedEmail ? (
-              <>
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Subject Line</CardTitle>
-                      <button
-                        onClick={handleCopySubject}
-                        className="p-1.5 hover:bg-secondary rounded-md transition-colors"
-                        title="Copy subject"
-                      >
-                        <Copy className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Input
-                      value={editedSubject}
-                      onChange={(e) => setEditedSubject(e.target.value)}
-                      className="text-sm"
-                    />
-                  </CardContent>
-                </Card>
+          {/* Prompt */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              What should the email say?
+            </label>
+            <Textarea
+              placeholder="e.g. Follow up on our meeting about the Q3 roadmap and ask for the budget spreadsheet…"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              rows={3}
+              className="resize-none"
+            />
+          </div>
 
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Email Body</CardTitle>
-                      <button
-                        onClick={handleCopyBody}
-                        className="p-1.5 hover:bg-secondary rounded-md transition-colors"
-                        title="Copy body"
-                      >
-                        <Copy className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      value={editedBody}
-                      onChange={(e) => setEditedBody(e.target.value)}
-                      className="min-h-[200px] resize-none text-sm"
-                    />
-                  </CardContent>
-                </Card>
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleRegenerate}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Regenerate
-                  </Button>
-                  <Button
-                    onClick={handleSend}
-                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Send Email
-                  </Button>
-                </div>
-              </>
+          {/* Generate Button */}
+          <Button
+            onClick={handleGenerate}
+            disabled={!prompt.trim() || isGenerating}
+            className="w-full h-11 text-base gap-2"
+          >
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Card className="h-full flex items-center justify-center min-h-[400px]">
-                <CardContent className="text-center">
-                  <p className="text-muted-foreground">
-                    Your generated email will appear here
-                  </p>
-                </CardContent>
-              </Card>
+              <Sparkles className="w-4 h-4" />
             )}
-          </div>
+            {isGenerating ? "Generating…" : "Generate Email"}
+          </Button>
+
+          {/* Generated Output */}
+          {generatedEmail && (
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-foreground">
+                  Generated Email
+                </label>
+                <button
+                  onClick={handleCopy}
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {copied ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <div className="rounded-xl bg-accent/50 border border-border p-4">
+                <pre className="whitespace-pre-wrap text-sm text-foreground font-sans leading-relaxed">
+                  {generatedEmail}
+                </pre>
+              </div>
+
+              {/* Send Button */}
+              <Button
+                onClick={handleSend}
+                disabled={!recipientEmail.trim() || isSending}
+                variant="secondary"
+                className="w-full h-11 text-base gap-2"
+              >
+                {isSending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                {isSending ? "Sending…" : "Send Email"}
+              </Button>
+            </div>
+          )}
+
+          {/* Status */}
+          {status && (
+            <div
+              className={`text-sm text-center py-2 px-4 rounded-lg ${
+                status.type === "success"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-destructive/10 text-destructive"
+              }`}
+            >
+              {status.message}
+            </div>
+          )}
         </div>
+
+        <p className="text-center text-xs text-muted-foreground">
+          Powered by AI · Review before sending
+        </p>
       </div>
     </div>
   );
