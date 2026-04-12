@@ -10,6 +10,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from transformers import pipeline
 from dotenv import load_dotenv
+from flask_session import Session  # Added for server-side sessions
 
 # Load env variables
 load_dotenv()
@@ -17,14 +18,21 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(24)
 
-# Configure session for reliable persistence during OAuth flow
+# Configure server-side sessions (more reliable than client-side)
 app.config.update(
+    SESSION_TYPE='filesystem',
+    SESSION_FILE_DIR='./flask_session',
+    SESSION_PERMANENT=False,
+    SESSION_USE_SIGNER=True,
+    SESSION_COOKIE_NAME='session',
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SECURE=False,  # Set to True in production with HTTPS
     SESSION_COOKIE_SAMESITE='Lax',
     PERMANENT_SESSION_LIFETIME=1800,  # 30 minutes
-    SESSION_TYPE='filesystem'  # Explicitly use filesystem sessions
 )
+
+# Initialize server-side sessions
+Session(app)
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
@@ -39,7 +47,6 @@ REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/oauth2callb
 email_generator = None
 email_summarizer = None
 
-
 def load_email_generator():
     """Load Hugging Face email generation model lazily."""
     global email_generator
@@ -50,7 +57,6 @@ def load_email_generator():
             tokenizer="pszemraj/opt-350m-email-generation",
         )
     return email_generator
-
 
 def load_email_summarizer():
     """Load Hugging Face email summarization model lazily."""
@@ -63,7 +69,6 @@ def load_email_summarizer():
         )
     return email_summarizer
 
-
 def get_gmail_service():
     """Build Gmail API service using stored credentials."""
     if "credentials" not in session:
@@ -74,16 +79,13 @@ def get_gmail_service():
     service = build("gmail", "v1", credentials=creds)
     return service
 
-
 # ---------- BASIC ROUTES + OAUTH FLOW WITH PKCE IN SESSION ----------
-
 
 @app.route("/")
 def index():
     if "credentials" in session:
         return jsonify({"status": "logged_in"})
     return jsonify({"status": "not_logged_in"})
-
 
 @app.route("/login")
 def login():
@@ -123,7 +125,6 @@ def login():
     print(f"Login - Stored verifier: {code_verifier[:10]}... | Session keys: {list(session.keys())}")
     
     return redirect(authorization_url)
-
 
 @app.route("/oauth2callback")
 def oauth2callback():
@@ -179,12 +180,10 @@ def oauth2callback():
     
     return redirect("/")  # frontend can check / to know login status
 
-
 @app.route("/logout")
 def logout():
     session.clear()
     return jsonify({"status": "logged_out"})
-
 
 @app.route("/me")
 def me():
@@ -195,9 +194,7 @@ def me():
     profile = service.users().getProfile(userId="me").execute()
     return jsonify(profile)
 
-
 # ---------- EMAIL SENDING ----------
-
 
 @app.route("/send_email", methods=["POST"])
 def send_email():
@@ -222,9 +219,7 @@ def send_email():
 
     return jsonify({"message": "sent", "id": sent.get("id")})
 
-
 # ---------- EMAIL LIST / GET ----------
-
 
 @app.route("/list_emails", methods=["GET"])
 def list_emails():
@@ -259,7 +254,6 @@ def list_emails():
 
     return jsonify({"emails": email_list})
 
-
 def extract_email_body(payload):
     """Extract text body from Gmail message payload."""
     body = ""
@@ -282,7 +276,6 @@ def extract_email_body(payload):
 
     return body
 
-
 @app.route("/get_email/<email_id>", methods=["GET"])
 def get_email(email_id):
     service = get_gmail_service()
@@ -304,9 +297,7 @@ def get_email(email_id):
         {"id": email_id, "subject": subject, "from": sender, "date": date, "body": body}
     )
 
-
 # ---------- DRAFTS ----------
-
 
 @app.route("/create_draft", methods=["POST"])
 def create_draft():
@@ -336,9 +327,7 @@ def create_draft():
 
     return jsonify({"message": "draft_created", "id": draft.get("id")})
 
-
 # ---------- LABELS ----------
-
 
 @app.route("/list_labels", methods=["GET"])
 def list_labels():
@@ -350,9 +339,7 @@ def list_labels():
     labels = result.get("labels", [])
     return jsonify({"labels": labels})
 
-
 # ---------- AI: PROMPT → EMAIL ----------
-
 
 @app.route("/generate_email", methods=["POST"])
 def generate_email():
@@ -370,19 +357,19 @@ def generate_email():
     out = generator(formatted_prompt, max_length=512, num_return_sequences=1)
     text = out[0]["generated_text"]
 
-    lines = text.strip().split("\n")
+    lines = text.strip().split("\\n")
     subject = ""
     body = ""
 
     for i, line in enumerate(lines):
         if line.lower().startswith("subject:"):
-            subject = line[len("subject:") :].strip()
-            body = "\n".join(lines[i + 1 :]).strip()
+            subject = line[len("subject:"):].strip()
+            body = "\\n".join(lines[i + 1:]).strip()
             break
 
     if not subject and lines:
         subject = lines[0].strip()
-        body = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        body = "\\n".join(lines[1:]).strip() if len(lines) > 1 else ""
 
     if not body:
         body = text.strip()
@@ -395,9 +382,7 @@ def generate_email():
         }
     )
 
-
 # ---------- AI: EMAIL SUMMARIZATION ----------
-
 
 @app.route("/summarize_email", methods=["POST"])
 def summarize_email():
@@ -431,6 +416,16 @@ def summarize_email():
         }
     )
 
+@app.route("/debug_session")
+def debug_session():
+    print(f"DEBUG - All session data: {dict(session)}")
+    return jsonify({
+        "session_keys": list(session.keys()),
+        "has_credentials": "credentials" in session,
+        "session_data": dict(session)
+    })
 
 if __name__ == "__main__":
+    # Ensure session directory exists
+    os.makedirs('./flask_session', exist_ok=True)
     app.run(debug=True, port=5000)
