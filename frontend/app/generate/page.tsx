@@ -20,12 +20,29 @@ export default function EmailGenerator() {
     setIsGenerating(true);
     setStatus(null);
 
-    // Simulate AI generation (replace with real AI call)
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      // Corrected endpoint: removed /api prefix
+      const res = await fetch("/generate_email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+      });
 
-    const generated = `Subject: ${prompt.trim()}\n\nDear Recipient,\n\nI hope this email finds you well. ${prompt.trim()}\n\nPlease don't hesitate to reach out if you have any questions or need further clarification.\n\nBest regards`;
-    setGeneratedEmail(generated);
-    setIsGenerating(false);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Generation failed");
+      }
+
+      const data = await res.json();
+      const { subject, body } = data;
+      // Combine subject and body into a single email string
+      const emailText = `Subject: ${subject}\n\n${body}`;
+      setGeneratedEmail(emailText);
+    } catch (err: any) {
+      setStatus({ type: "error", message: err.message || "Unknown error" });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSend = async () => {
@@ -33,11 +50,31 @@ export default function EmailGenerator() {
     setIsSending(true);
     setStatus(null);
 
-    // Simulate sending (replace with real send logic)
-    await new Promise((r) => setTimeout(r, 1200));
+    // Parse generated email to extract subject and body
+    const lines = generatedEmail.split("\n");
+    const subjectLine = lines[0] || "";
+    const subject = subjectLine.replace(/^Subject:\s*/i, "").trim();
+    const body = lines.slice(2).join("\n").trim(); // skip subject and blank line
 
-    setStatus({ type: "success", message: `Email sent to ${recipientEmail}` });
-    setIsSending(false);
+    try {
+      // Corrected endpoint: removed /api prefix
+      const res = await fetch("/send_email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: recipientEmail.trim(), subject, body }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Sending failed");
+      }
+
+      setStatus({ type: "success", message: `Email sent to ${recipientEmail}` });
+    } catch (err: any) {
+      setStatus({ type: "error", message: err.message || "Unknown error" });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleCopy = () => {

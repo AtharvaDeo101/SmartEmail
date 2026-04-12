@@ -4,35 +4,39 @@ import secrets
 import hashlib
 from email.mime.text import MIMEText
 
-from flask import Flask, redirect, url_for, session, request, jsonify
+from flask import Flask, redirect, session, request, jsonify
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from transformers import pipeline
 from dotenv import load_dotenv
-from flask_session import Session  # Added for server-side sessions
+from flask_session import Session
+from flask_cors import CORS
 
-# Load env variables
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(24)
 
-# Configure server-side sessions (more reliable than client-side)
 app.config.update(
-    SESSION_TYPE='filesystem',
-    SESSION_FILE_DIR='./flask_session',
+    SESSION_TYPE="filesystem",
+    SESSION_FILE_DIR="./flask_session",
     SESSION_PERMANENT=False,
     SESSION_USE_SIGNER=True,
-    SESSION_COOKIE_NAME='session',
+    SESSION_COOKIE_NAME="session",
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=False,  # Set to True in production with HTTPS
-    SESSION_COOKIE_SAMESITE='Lax',
-    PERMANENT_SESSION_LIFETIME=1800,  # 30 minutes
+    SESSION_COOKIE_SECURE=False,  # True in production with HTTPS
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=1800,
 )
 
-# Initialize server-side sessions
 Session(app)
+
+# Allow frontend at 3000 to send/receive cookies
+CORS(
+    app,
+    resources={r"/*": {"origins": "http://localhost:3000", "supports_credentials": True}},
+)
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
@@ -41,14 +45,14 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.modify",
 ]
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000/")
 REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/oauth2callback")
 
-# Lazy-loaded AI pipelines
 email_generator = None
 email_summarizer = None
 
+
 def load_email_generator():
-    """Load Hugging Face email generation model lazily."""
     global email_generator
     if email_generator is None:
         email_generator = pipeline(
@@ -58,8 +62,8 @@ def load_email_generator():
         )
     return email_generator
 
+
 def load_email_summarizer():
-    """Load Hugging Face email summarization model lazily."""
     global email_summarizer
     if email_summarizer is None:
         email_summarizer = pipeline(
@@ -69,17 +73,14 @@ def load_email_summarizer():
         )
     return email_summarizer
 
+
 def get_gmail_service():
-    """Build Gmail API service using stored credentials."""
     if "credentials" not in session:
         return None
-
     creds_dict = session["credentials"]
     creds = Credentials(**creds_dict)
-    service = build("gmail", "v1", credentials=creds)
-    return service
+    return build("gmail", "v1", credentials=creds)
 
-# ---------- BASIC ROUTES + OAUTH FLOW WITH PKCE IN SESSION ----------
 
 @app.route("/")
 def index():
@@ -87,16 +88,19 @@ def index():
         return jsonify({"status": "logged_in"})
     return jsonify({"status": "not_logged_in"})
 
+
 @app.route("/login")
 def login():
-    # Generate PKCE verifier and challenge
     code_verifier = secrets.token_urlsafe(32)
-    session['code_verifier'] = code_verifier  # Store in session
-    
-    # Create code challenge using S256 method
-    code_challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(code_verifier.encode()).digest()
-    ).decode().rstrip('=')
+    session["code_verifier"] = code_verifier
+
+    code_challenge = (
+        base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode()).digest()
+        )
+        .decode()
+        .rstrip("=")
+    )
 
     flow = Flow.from_client_config(
         client_config={
@@ -120,31 +124,18 @@ def login():
         code_challenge_method="S256",
     )
     session["state"] = state
-    
-    # Debug: Print session contents to verify storage
-    print(f"Login - Stored verifier: {code_verifier[:10]}... | Session keys: {list(session.keys())}")
-    
     return redirect(authorization_url)
+
 
 @app.route("/oauth2callback")
 def oauth2callback():
-    # Debug: Print incoming request info
-    print(f"Callback - Received state: {request.args.get('state')}")
-    print(f"Callback - Session state: {session.get('state')}")
-    print(f"Callback - Session keys: {list(session.keys())}")
-
-    # Validate state to prevent CSRF
     if "state" not in session or session["state"] != request.args.get("state"):
-        print("ERROR: State mismatch or missing")
         return "Invalid state parameter", 400
 
-    # Retrieve and remove code verifier from session
-    if 'code_verifier' not in session:
-        print(f"ERROR: Code verifier not found in session. Session contents: {dict(session)}")
+    if "code_verifier" not in session:
         return "Code verifier not found in session", 400
-    
-    code_verifier = session.pop('code_verifier')
-    print(f"Callback - Retrieved verifier: {code_verifier[:10]}...")
+
+    code_verifier = session.pop("code_verifier")
 
     flow = Flow.from_client_config(
         client_config={
@@ -162,8 +153,10 @@ def oauth2callback():
     flow.redirect_uri = REDIRECT_URI
 
     authorization_response = request.url
-    # Fetch token with PKCE verifier
-    flow.fetch_token(authorization_response=authorization_response, code_verifier=code_verifier)
+    flow.fetch_token(
+        authorization_response=authorization_response,
+        code_verifier=code_verifier,
+    )
 
     creds = flow.credentials
     session["credentials"] = {
@@ -174,27 +167,25 @@ def oauth2callback():
         "client_secret": creds.client_secret,
         "scopes": creds.scopes,
     }
-    
-    # Debug: Confirm successful token storage
-    print(f"Callback - Stored credentials for user: {creds.id_token.get('email') if creds.id_token else 'unknown'}")
-    
-    return redirect("/")  # frontend can check / to know login status
 
-@app.route("/logout")
+    # Redirect back to React/Next app
+    return redirect(FRONTEND_URL)
+
+
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return jsonify({"status": "logged_out"})
+
 
 @app.route("/me")
 def me():
     service = get_gmail_service()
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
-
     profile = service.users().getProfile(userId="me").execute()
     return jsonify(profile)
 
-# ---------- EMAIL SENDING ----------
 
 @app.route("/send_email", methods=["POST"])
 def send_email():
@@ -215,11 +206,15 @@ def send_email():
     message["subject"] = subject
 
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-    sent = service.users().messages().send(userId="me", body={"raw": raw}).execute()
+    sent = (
+        service.users()
+        .messages()
+        .send(userId="me", body={"raw": raw})
+        .execute()
+    )
 
     return jsonify({"message": "sent", "id": sent.get("id")})
 
-# ---------- EMAIL LIST / GET ----------
 
 @app.route("/list_emails", methods=["GET"])
 def list_emails():
@@ -230,23 +225,37 @@ def list_emails():
     max_results = request.args.get("max_results", 10, type=int)
     query = request.args.get("q", "")
 
-    result = service.users().messages().list(
-        userId="me", maxResults=max_results, q=query
-    ).execute()
+    result = (
+        service.users()
+        .messages()
+        .list(userId="me", maxResults=max_results, q=query)
+        .execute()
+    )
     messages = result.get("messages", [])
 
     email_list = []
     for m in messages:
-        msg = service.users().messages().get(
-            userId="me",
-            id=m["id"],
-            format="metadata",
-            metadataHeaders=["Subject", "From", "Date"],
-        ).execute()
+        msg = (
+            service.users()
+            .messages()
+            .get(
+                userId="me",
+                id=m["id"],
+                format="metadata",
+                metadataHeaders=["Subject", "From", "Date"],
+            )
+            .execute()
+        )
         headers = msg.get("payload", {}).get("headers", [])
-        subject = next((h["value"] for h in headers if h["name"] == "Subject"), "")
-        sender = next((h["value"] for h in headers if h["name"] == "From"), "")
-        date = next((h["value"] for h in headers if h["name"] == "Date"), "")
+        subject = next(
+            (h["value"] for h in headers if h["name"] == "Subject"), ""
+        )
+        sender = next(
+            (h["value"] for h in headers if h["name"] == "From"), ""
+        )
+        date = next(
+            (h["value"] for h in headers if h["name"] == "Date"), ""
+        )
 
         email_list.append(
             {"id": m["id"], "subject": subject, "from": sender, "date": date}
@@ -254,8 +263,8 @@ def list_emails():
 
     return jsonify({"emails": email_list})
 
+
 def extract_email_body(payload):
-    """Extract text body from Gmail message payload."""
     body = ""
 
     if "parts" in payload:
@@ -263,18 +272,25 @@ def extract_email_body(payload):
             if part.get("mimeType") == "text/plain":
                 data = part.get("body", {}).get("data")
                 if data:
-                    body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                    body = base64.urlsafe_b64decode(data).decode(
+                        "utf-8", errors="ignore"
+                    )
                     break
             elif part.get("mimeType") == "text/html" and not body:
                 data = part.get("body", {}).get("data")
                 if data:
-                    body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                    body = base64.urlsafe_b64decode(data).decode(
+                        "utf-8", errors="ignore"
+                    )
     else:
         data = payload.get("body", {}).get("data")
         if data:
-            body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+            body = base64.urlsafe_b64decode(data).decode(
+                "utf-8", errors="ignore"
+            )
 
     return body
+
 
 @app.route("/get_email/<email_id>", methods=["GET"])
 def get_email(email_id):
@@ -282,22 +298,36 @@ def get_email(email_id):
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
-    msg = service.users().messages().get(
-        userId="me", id=email_id, format="full"
-    ).execute()
+    msg = (
+        service.users()
+        .messages()
+        .get(userId="me", id=email_id, format="full")
+        .execute()
+    )
     payload = msg.get("payload", {})
     headers = payload.get("headers", [])
-    subject = next((h["value"] for h in headers if h["name"] == "Subject"), "")
-    sender = next((h["value"] for h in headers if h["name"] == "From"), "")
-    date = next((h["value"] for h in headers if h["name"] == "Date"), "")
+    subject = next(
+        (h["value"] for h in headers if h["name"] == "Subject"), ""
+    )
+    sender = next(
+        (h["value"] for h in headers if h["name"] == "From"), ""
+    )
+    date = next(
+        (h["value"] for h in headers if h["name"] == "Date"), ""
+    )
 
     body = extract_email_body(payload)
 
     return jsonify(
-        {"id": email_id, "subject": subject, "from": sender, "date": date, "body": body}
+        {
+            "id": email_id,
+            "subject": subject,
+            "from": sender,
+            "date": date,
+            "body": body,
+        }
     )
 
-# ---------- DRAFTS ----------
 
 @app.route("/create_draft", methods=["POST"])
 def create_draft():
@@ -327,7 +357,6 @@ def create_draft():
 
     return jsonify({"message": "draft_created", "id": draft.get("id")})
 
-# ---------- LABELS ----------
 
 @app.route("/list_labels", methods=["GET"])
 def list_labels():
@@ -339,7 +368,6 @@ def list_labels():
     labels = result.get("labels", [])
     return jsonify({"labels": labels})
 
-# ---------- AI: PROMPT → EMAIL ----------
 
 @app.route("/generate_email", methods=["POST"])
 def generate_email():
@@ -363,13 +391,13 @@ def generate_email():
 
     for i, line in enumerate(lines):
         if line.lower().startswith("subject:"):
-            subject = line[len("subject:"):].strip()
-            body = "\\n".join(lines[i + 1:]).strip()
+            subject = line[len("subject:") :].strip()
+            body = "\n".join(lines[i + 1 :]).strip()
             break
 
     if not subject and lines:
         subject = lines[0].strip()
-        body = "\\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        body = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
 
     if not body:
         body = text.strip()
@@ -382,7 +410,6 @@ def generate_email():
         }
     )
 
-# ---------- AI: EMAIL SUMMARIZATION ----------
 
 @app.route("/summarize_email", methods=["POST"])
 def summarize_email():
@@ -391,7 +418,7 @@ def summarize_email():
 
     data = request.get_json() or {}
     content = data.get("content")
-    summary_type = data.get("type", "brief")  # 'brief' | 'full'
+    summary_type = data.get("type", "brief")
 
     if not content:
         return jsonify({"error": "content is required"}), 400
@@ -416,16 +443,7 @@ def summarize_email():
         }
     )
 
-@app.route("/debug_session")
-def debug_session():
-    print(f"DEBUG - All session data: {dict(session)}")
-    return jsonify({
-        "session_keys": list(session.keys()),
-        "has_credentials": "credentials" in session,
-        "session_data": dict(session)
-    })
 
 if __name__ == "__main__":
-    # Ensure session directory exists
-    os.makedirs('./flask_session', exist_ok=True)
+    os.makedirs("./flask_session", exist_ok=True)
     app.run(debug=True, port=5000)
