@@ -32,7 +32,6 @@ export function Navigation() {
         });
         if (res.ok) {
           const data = await res.json();
-          // Gmail getProfile returns `emailAddress`, not `email`
           setIsAuthenticated("emailAddress" in data);
         } else {
           setIsAuthenticated(false);
@@ -115,7 +114,6 @@ export function Navigation() {
           {/* Desktop right actions */}
           <div className="hidden md:flex items-center gap-3">
             {checkingAuth ? (
-              /* Skeleton to prevent layout shift while auth resolves */
               <div className="w-28 h-9 rounded-full bg-foreground/10 animate-pulse" />
             ) : isAuthenticated ? (
               <>
@@ -140,7 +138,7 @@ export function Navigation() {
                 </Button>
               </>
             ) : (
-              /* Unauthenticated: single "Get Started" button only */
+              // ✅ Changed: points to /login (Next.js page), not Flask directly
               <Button
                 size="sm"
                 className={`bg-primary hover:bg-primary/90 text-primary-foreground rounded-full transition-all duration-500 ${
@@ -148,7 +146,7 @@ export function Navigation() {
                 }`}
                 asChild
               >
-                <a href="http://localhost:5000/login">Get Started</a>
+                <a href="/login">Get Started</a>
               </Button>
             )}
           </div>
@@ -228,12 +226,13 @@ export function Navigation() {
                   </Button>
                 </>
               ) : (
+                // ✅ Changed: points to /login (Next.js page), not Flask directly
                 <Button
                   className="flex-1 bg-primary text-primary-foreground rounded-full h-14 text-base"
                   onClick={() => setIsMobileMenuOpen(false)}
                   asChild
                 >
-                  <a href="http://localhost:5000/login">Get Started</a>
+                  <a href="/login">Get Started</a>
                 </Button>
               )}
             </div>
