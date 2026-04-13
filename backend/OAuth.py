@@ -392,12 +392,12 @@ def generate_email():
     for i, line in enumerate(lines):
         if line.lower().startswith("subject:"):
             subject = line[len("subject:") :].strip()
-            body = "\n".join(lines[i + 1 :]).strip()
+            body = "\\n".join(lines[i + 1 :]).strip()
             break
 
     if not subject and lines:
         subject = lines[0].strip()
-        body = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        body = "\\n".join(lines[1:]).strip() if len(lines) > 1 else ""
 
     if not body:
         body = text.strip()
