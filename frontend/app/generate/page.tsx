@@ -1,19 +1,36 @@
-'use client';   
+"use client";
 
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Mail, Sparkles, Send, Loader2, Copy, Check } from "lucide-react";
 
+const API = "http://localhost:5000";
+
 export default function EmailGenerator() {
+  const isAuthenticated = useAuth(); // redirects to /login if not authed
+
   const [prompt, setPrompt] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [generatedEmail, setGeneratedEmail] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [status, setStatus] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  /* Show spinner while auth check is in progress */
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -21,9 +38,9 @@ export default function EmailGenerator() {
     setStatus(null);
 
     try {
-      // Corrected endpoint: removed /api prefix
-      const res = await fetch("/generate_email", {
+      const res = await fetch(`${API}/generate_email`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: prompt.trim() }),
       });
@@ -34,9 +51,7 @@ export default function EmailGenerator() {
       }
 
       const data = await res.json();
-      const { subject, body } = data;
-      // Combine subject and body into a single email string
-      const emailText = `Subject: ${subject}\n\n${body}`;
+      const emailText = `Subject: ${data.subject}\n\n${data.body}`;
       setGeneratedEmail(emailText);
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Unknown error" });
@@ -50,16 +65,14 @@ export default function EmailGenerator() {
     setIsSending(true);
     setStatus(null);
 
-    // Parse generated email to extract subject and body
     const lines = generatedEmail.split("\n");
-    const subjectLine = lines[0] || "";
-    const subject = subjectLine.replace(/^Subject:\s*/i, "").trim();
-    const body = lines.slice(2).join("\n").trim(); // skip subject and blank line
+    const subject = lines[0].replace(/^Subject:\s*/i, "").trim();
+    const body = lines.slice(2).join("\n").trim();
 
     try {
-      // Corrected endpoint: removed /api prefix
-      const res = await fetch("/send_email", {
+      const res = await fetch(`${API}/send_email`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: recipientEmail.trim(), subject, body }),
       });
@@ -69,7 +82,10 @@ export default function EmailGenerator() {
         throw new Error(errorData.error || "Sending failed");
       }
 
-      setStatus({ type: "success", message: `Email sent to ${recipientEmail}` });
+      setStatus({
+        type: "success",
+        message: `Email sent to ${recipientEmail}`,
+      });
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Unknown error" });
     } finally {
@@ -84,7 +100,7 @@ export default function EmailGenerator() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 pt-28">
       <div className="w-full max-w-2xl space-y-8">
         {/* Header */}
         <div className="text-center space-y-3">

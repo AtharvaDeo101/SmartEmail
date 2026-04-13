@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmailCard } from "@/components/email-card";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import { Copy, X } from "lucide-react";
 import { toast } from "sonner";
+
+const API = "http://localhost:5000";
 
 interface Email {
   id: string;
@@ -58,87 +61,115 @@ const mockEmails: Email[] = [
   },
 ];
 
+/**
+ * Parses the flat summary string from the backend into structured sections.
+ * The model returns free-form text, so we do a best-effort parse.
+ */
+function parseSummary(raw: string): Summary {
+  const lines = raw
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const keyPoints: string[] = [];
+  const actionItems: string[] = [];
+  let sentiment = "Neutral";
+
+  let mode: "key" | "action" | "other" = "other";
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    if (lower.includes("key point") || lower.includes("summary")) {
+      mode = "key";
+      continue;
+    }
+    if (lower.includes("action") || lower.includes("next step")) {
+      mode = "action";
+      continue;
+    }
+    if (lower.startsWith("sentiment") || lower.startsWith("tone")) {
+      sentiment = line.replace(/^(sentiment|tone)[:\s-]*/i, "").trim();
+      mode = "other";
+      continue;
+    }
+
+    const cleaned = line.replace(/^[-•*\d.]+\s*/, "").trim();
+    if (!cleaned) continue;
+
+    if (mode === "key") keyPoints.push(cleaned);
+    else if (mode === "action") actionItems.push(cleaned);
+    else {
+      // Fallback: treat bullet-like lines as key points
+      if (/^[-•*]/.test(line)) keyPoints.push(cleaned);
+    }
+  }
+
+  // If the model returned a flat paragraph with no sections, use the whole thing as one key point
+  if (keyPoints.length === 0 && actionItems.length === 0) {
+    keyPoints.push(raw.trim());
+  }
+
+  return { keyPoints, actionItems, sentiment };
+}
+
 export default function SummarizePage() {
+  const isAuthenticated = useAuth(); // redirects to /login if not authed
+
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const selectedEmail = mockEmails.find((e) => e.id === selectedEmailId);
 
+  /* Show spinner while auth check is in progress */
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   const handleSelectEmail = async (email: Email) => {
     setSelectedEmailId(email.id);
     setIsLoading(true);
     setSummary(null);
 
-    // Simulate API call with delay
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    try {
+      const res = await fetch(`${API}/summarize_email`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: email.body, type: "full" }),
+      });
 
-    const mockSummaries: Record<string, Summary> = {
-      "1": {
-        keyPoints: [
-          "Q2 project is on track for scheduled release",
-          "API integration completed successfully",
-          "User testing phase has started",
-        ],
-        actionItems: [
-          "Finalize remaining features",
-          "Conduct security audit",
-          "Prepare launch materials",
-        ],
-        sentiment: "Positive and Progress-focused",
-      },
-      "2": {
-        keyPoints: [
-          "Design mockups received positive overall feedback",
-          "Interface is clean and intuitive",
-          "Some accessibility considerations needed",
-        ],
-        actionItems: [
-          "Adjust button sizing for better accessibility",
-          "Add more icons for visual hierarchy",
-          "Test designs across different screen sizes",
-          "Schedule design review call",
-        ],
-        sentiment: "Constructive and Supportive",
-      },
-      "3": {
-        keyPoints: [
-          "Q3 budget approved for new initiatives",
-          "Partnership proposal moving forward",
-          "Monthly leadership check-ins established",
-        ],
-        actionItems: [
-          "Prepare detailed Q3 budget breakdown",
-          "Create partnership agreement draft",
-          "Update project roadmap",
-        ],
-        sentiment: "Positive and Decisive",
-      },
-      "4": {
-        keyPoints: [
-          "Comprehensive system architecture guide provided",
-          "Three-phase implementation plan outlined",
-          "Best practices and standards included",
-        ],
-        actionItems: [
-          "Review implementation guide",
-          "Provide feedback by Friday",
-          "Begin Phase 1 infrastructure setup",
-        ],
-        sentiment: "Technical and Professional",
-      },
-    };
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Summarization failed");
+      }
 
-    setSummary(mockSummaries[email.id] || mockSummaries["1"]);
-    setIsLoading(false);
+      const data = await res.json();
+      setSummary(parseSummary(data.summary));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to summarize email");
+      setSummary(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCopySummary = () => {
     if (!summary) return;
-
-    const summaryText = `Key Points:\n${summary.keyPoints.map((p) => `- ${p}`).join("\n")}\n\nAction Items:\n${summary.actionItems.map((a) => `- ${a}`).join("\n")}\n\nSentiment: ${summary.sentiment}`;
-
-    navigator.clipboard.writeText(summaryText);
+    const text = [
+      "Key Points:",
+      ...summary.keyPoints.map((p) => `- ${p}`),
+      "",
+      "Action Items:",
+      ...summary.actionItems.map((a) => `- ${a}`),
+      "",
+      `Sentiment: ${summary.sentiment}`,
+    ].join("\n");
+    navigator.clipboard.writeText(text);
     toast.success("Summary copied to clipboard");
   };
 
@@ -171,19 +202,18 @@ export default function SummarizePage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {mockEmails.map((email) => (
-                  <div key={email.id} className="flex gap-2">
-                    <button
-                      onClick={() => handleSelectEmail(email)}
-                      className="flex-1 text-left"
-                    >
-                      <EmailCard
-                        from={email.from}
-                        subject={email.subject}
-                        preview={email.preview}
-                        date={email.date}
-                      />
-                    </button>
-                  </div>
+                  <button
+                    key={email.id}
+                    onClick={() => handleSelectEmail(email)}
+                    className="w-full text-left"
+                  >
+                    <EmailCard
+                      from={email.from}
+                      subject={email.subject}
+                      preview={email.preview}
+                      date={email.date}
+                    />
+                  </button>
                 ))}
               </CardContent>
             </Card>
@@ -191,7 +221,7 @@ export default function SummarizePage() {
 
           {/* Summary Section */}
           <div className="lg:col-span-2 space-y-4">
-            {selectedEmail && (
+            {selectedEmail ? (
               <>
                 {/* Email Preview */}
                 <Card>
@@ -208,6 +238,7 @@ export default function SummarizePage() {
                       <button
                         onClick={handleClearSelection}
                         className="p-1.5 hover:bg-secondary rounded-md transition-colors"
+                        aria-label="Close"
                       >
                         <X className="w-5 h-5 text-muted-foreground" />
                       </button>
@@ -226,7 +257,7 @@ export default function SummarizePage() {
                     <div className="text-center">
                       <LoadingSpinner />
                       <p className="text-muted-foreground text-sm mt-4">
-                        Generating summary...
+                        Generating summary…
                       </p>
                     </div>
                   </Card>
@@ -239,47 +270,54 @@ export default function SummarizePage() {
                           <button
                             onClick={handleCopySummary}
                             className="p-1.5 hover:bg-secondary rounded-md transition-colors"
+                            aria-label="Copy summary"
                           >
                             <Copy className="w-4 h-4 text-muted-foreground" />
                           </button>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div>
-                          <h3 className="font-semibold text-sm mb-2">
-                            Key Points
-                          </h3>
-                          <ul className="space-y-1">
-                            {summary.keyPoints.map((point, i) => (
-                              <li
-                                key={i}
-                                className="text-sm text-foreground/80 flex gap-2"
-                              >
-                                <span className="text-primary font-bold">•</span>
-                                <span>{point}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        {summary.keyPoints.length > 0 && (
+                          <div>
+                            <h3 className="font-semibold text-sm mb-2">
+                              Key Points
+                            </h3>
+                            <ul className="space-y-1">
+                              {summary.keyPoints.map((point, i) => (
+                                <li
+                                  key={i}
+                                  className="text-sm text-foreground/80 flex gap-2"
+                                >
+                                  <span className="text-primary font-bold shrink-0">
+                                    •
+                                  </span>
+                                  <span>{point}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
-                        <div className="pt-3 border-t border-border">
-                          <h3 className="font-semibold text-sm mb-2">
-                            Action Items
-                          </h3>
-                          <ul className="space-y-1">
-                            {summary.actionItems.map((item, i) => (
-                              <li
-                                key={i}
-                                className="text-sm text-foreground/80 flex gap-2"
-                              >
-                                <span className="text-secondary font-bold">
-                                  ✓
-                                </span>
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        {summary.actionItems.length > 0 && (
+                          <div className="pt-3 border-t border-border">
+                            <h3 className="font-semibold text-sm mb-2">
+                              Action Items
+                            </h3>
+                            <ul className="space-y-1">
+                              {summary.actionItems.map((item, i) => (
+                                <li
+                                  key={i}
+                                  className="text-sm text-foreground/80 flex gap-2"
+                                >
+                                  <span className="text-primary font-bold shrink-0">
+                                    ✓
+                                  </span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
                         <div className="pt-3 border-t border-border">
                           <p className="text-sm">
@@ -302,9 +340,7 @@ export default function SummarizePage() {
                   </>
                 ) : null}
               </>
-            )}
-
-            {!selectedEmail && (
+            ) : (
               <Card className="min-h-[300px] flex items-center justify-center">
                 <CardContent className="text-center">
                   <p className="text-muted-foreground">

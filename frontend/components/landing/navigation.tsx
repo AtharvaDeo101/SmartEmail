@@ -32,6 +32,7 @@ export function Navigation() {
         });
         if (res.ok) {
           const data = await res.json();
+          // Gmail getProfile returns `emailAddress`, not `email`
           setIsAuthenticated("emailAddress" in data);
         } else {
           setIsAuthenticated(false);
@@ -95,7 +96,7 @@ export function Navigation() {
             </span>
           </a>
 
-          {/* Desktop Nav Links — only when authenticated */}
+          {/* Desktop nav links — only when authenticated */}
           {!checkingAuth && isAuthenticated && (
             <div className="hidden md:flex items-center gap-12">
               {navLinks.map((link) => (
@@ -111,19 +112,19 @@ export function Navigation() {
             </div>
           )}
 
-          {/* Desktop Auth Actions */}
-          <div className="hidden md:flex items-center gap-4">
-            {/* Skeleton placeholder while checking auth to avoid layout shift */}
+          {/* Desktop right actions */}
+          <div className="hidden md:flex items-center gap-3">
             {checkingAuth ? (
-              <div className="w-20 h-8 rounded-full bg-foreground/10 animate-pulse" />
+              /* Skeleton to prevent layout shift while auth resolves */
+              <div className="w-28 h-9 rounded-full bg-foreground/10 animate-pulse" />
             ) : isAuthenticated ? (
               <>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleLogout}
-                  className={`text-foreground/70 hover:text-foreground transition-all duration-500 ${
-                    isScrolled ? "text-xs" : "text-sm"
+                  className={`rounded-full transition-all duration-500 ${
+                    isScrolled ? "h-8 px-4 text-xs" : "px-5 text-sm"
                   }`}
                 >
                   Sign out
@@ -131,7 +132,7 @@ export function Navigation() {
                 <Button
                   size="sm"
                   className={`bg-primary hover:bg-primary/90 text-primary-foreground rounded-full transition-all duration-500 ${
-                    isScrolled ? "px-4 h-8 text-xs" : "px-6"
+                    isScrolled ? "h-8 px-4 text-xs" : "px-6 text-sm"
                   }`}
                   asChild
                 >
@@ -139,39 +140,34 @@ export function Navigation() {
                 </Button>
               </>
             ) : (
-              <>
-                <a
-                  href="http://localhost:5000/login"
-                  className={`text-foreground/70 hover:text-foreground transition-all duration-500 ${
-                    isScrolled ? "text-xs" : "text-sm"
-                  }`}
-                >
-                  Sign in
-                </a>
-                <Button
-                  size="sm"
-                  className={`bg-primary hover:bg-primary/90 text-primary-foreground rounded-full transition-all duration-500 ${
-                    isScrolled ? "px-4 h-8 text-xs" : "px-6"
-                  }`}
-                  asChild
-                >
-                  <a href="http://localhost:5000/login">Get Started</a>
-                </Button>
-              </>
+              /* Unauthenticated: single "Get Started" button only */
+              <Button
+                size="sm"
+                className={`bg-primary hover:bg-primary/90 text-primary-foreground rounded-full transition-all duration-500 ${
+                  isScrolled ? "h-8 px-4 text-xs" : "px-6 text-sm"
+                }`}
+                asChild
+              >
+                <a href="http://localhost:5000/login">Get Started</a>
+              </Button>
             )}
           </div>
 
-          {/* Mobile Hamburger */}
+          {/* Mobile hamburger */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="md:hidden p-2"
             aria-label="Toggle menu"
           >
-            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {isMobileMenuOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
           </button>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile full-screen menu */}
         <div
           className={`md:hidden fixed inset-0 bg-background z-40 transition-all duration-500 ${
             isMobileMenuOpen
@@ -181,6 +177,7 @@ export function Navigation() {
           style={{ top: 0 }}
         >
           <div className="flex flex-col h-full px-8 pt-28 pb-8">
+            {/* Nav links only when authenticated */}
             {!checkingAuth && isAuthenticated && (
               <div className="flex-1 flex flex-col justify-center gap-8">
                 {navLinks.map((link, i) => (
@@ -189,9 +186,13 @@ export function Navigation() {
                     href={link.href}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`text-5xl font-display text-foreground hover:text-muted-foreground transition-all duration-500 ${
-                      isMobileMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+                      isMobileMenuOpen
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-4"
                     }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? `${i * 75}ms` : "0ms" }}
+                    style={{
+                      transitionDelay: isMobileMenuOpen ? `${i * 75}ms` : "0ms",
+                    }}
                   >
                     {link.name}
                   </Link>
@@ -199,9 +200,12 @@ export function Navigation() {
               </div>
             )}
 
+            {/* Bottom CTA */}
             <div
               className={`flex gap-4 pt-8 border-t border-foreground/10 transition-all duration-500 ${
-                isMobileMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+                isMobileMenuOpen
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-4"
               }`}
               style={{ transitionDelay: isMobileMenuOpen ? "300ms" : "0ms" }}
             >
@@ -229,7 +233,7 @@ export function Navigation() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   asChild
                 >
-                  <a href="http://localhost:5000/login">Sign in with Google</a>
+                  <a href="http://localhost:5000/login">Get Started</a>
                 </Button>
               )}
             </div>
