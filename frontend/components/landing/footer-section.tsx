@@ -5,34 +5,33 @@ import { AnimatedWave } from "./animated-wave";
 
 const footerLinks = {
   Product: [
-    { name: "Features", href: "#features" },
-    { name: "How it works", href: "#how-it-works" },
-    { name: "Pricing", href: "#pricing" },
-    { name: "Integrations", href: "#integrations" },
+    { name: "Generate", href: "/generate" },
+    { name: "Summarize", href: "/summarize" },
+
   ],
-  Developers: [
-    { name: "Documentation", href: "#developers" },
-    { name: "API Reference", href: "#" },
-    { name: "SDK", href: "#developers" },
-    { name: "Status", href: "#" },
-  ],
-  Company: [
-    { name: "About", href: "#" },
-    { name: "Blog", href: "#" },
-    { name: "Careers", href: "#", badge: "Hiring" },
-    { name: "Contact", href: "#" },
-  ],
-  Legal: [
-    { name: "Privacy", href: "#" },
-    { name: "Terms", href: "#" },
-    { name: "Security", href: "#security" },
-  ],
+//   Developers: [
+//     { name: "Documentation", href: "#developers" },
+//     { name: "API Reference", href: "#" },
+//     { name: "SDK", href: "#developers" },
+//     { name: "Status", href: "#" },
+//   ],
+//   Company: [
+//     { name: "About", href: "#" },
+//     { name: "Blog", href: "#" },
+//     { name: "Careers", href: "#", badge: "Hiring" },
+//     { name: "Contact", href: "#" },
+//   ],
+//   Legal: [
+//     { name: "Privacy", href: "#" },
+//     { name: "Terms", href: "#" },
+//     { name: "Security", href: "#security" },
+//   ],
 };
 
 const socialLinks = [
-  { name: "Twitter", href: "#" },
-  { name: "GitHub", href: "#" },
-  { name: "LinkedIn", href: "#" },
+  { name: "Instagram", href: "https://www.instagram.com/atharvasayshelo/" },
+  { name: "GitHub", href: "https://github.com/AtharvaDeo101" },
+  { name: "LinkedIn", href: "https://www.linkedin.com/in/atharva-deo-454248320?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app" },
 ];
 
 export function FooterSection() {
@@ -50,12 +49,12 @@ export function FooterSection() {
             {/* Brand Column */}
             <div className="col-span-2">
               <a href="#" className="inline-flex items-center gap-2 mb-6">
-                <span className="text-2xl font-display">Optimus</span>
-                <span className="text-xs text-muted-foreground font-mono">TM</span>
+                <span className="text-2xl font-display">MailAPT</span>
               </a>
 
               <p className="text-muted-foreground leading-relaxed mb-8 max-w-xs">
-                The platform for teams who ship. Build, deploy, and scale with unprecedented velocity.
+              Built using the powerful Llama 3.1 8B Instruct model, it understands your intent and 
+              transforms simple prompts into polished, ready-to-send and read emails.              
               </p>
 
               {/* Social Links */}
@@ -102,15 +101,10 @@ export function FooterSection() {
         {/* Bottom Bar */}
         <div className="py-8 border-t border-foreground/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            2025 Optimus. All rights reserved.
+            2026 MailAPT
           </p>
 
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              All systems operational
-            </span>
-          </div>
+
         </div>
       </div>
     </footer>
