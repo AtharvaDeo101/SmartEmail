@@ -14,13 +14,13 @@ export default function LoginPage() {
       <div className="relative hidden lg:flex flex-col items-center justify-center p-8 bg-secondary text-white">
         <div className="max-w-md mx-auto text-center space-y-6">
           <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/%E5%89%8D%E9%9D%A2%204.%20Lovebirds%20Website%20Login%20Design.jpg-1paoL13xn74ze0DJ424BHsfCXvnvkO.jpeg"
-            alt="Decorative bird illustration"
+            src="https://imgs.search.brave.com/FaUQ2xPKgxcdVo1yaUT9FCWs0qWxwZQTc1KiNAzr2Ag/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pLnBp/bmltZy5jb20vb3Jp/Z2luYWxzLzlhLzNi/LzdhLzlhM2I3YWFj/YmQ1YjYwMGVmYzdm/OGNiY2YzNmQ0ODFl/LmpwZw"
+            alt="Email Image"
             width={300}
             height={300}
             className="mx-auto"
           />
-          <h2 className="text-2xl font-medium">Welcome to Optimus</h2>
+          <h2 className="text-2xl font-medium">Welcome to MailAPT</h2>
           <p className="text-sm text-white/80">
             Your AI-powered email assistant for generating and summarizing emails with ease
           </p>
@@ -37,7 +37,7 @@ export default function LoginPage() {
       <div className="flex flex-col items-center justify-center p-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="text-center">
-            <h1 className="text-3xl font-bold mb-2 text-primary">Optimus</h1>
+            <h1 className="text-3xl font-bold mb-2 text-primary">MailAPT</h1>
             <h2 className="text-xl text-foreground/70">Welcome back</h2>
             <p className="text-sm text-foreground/50 mt-2">
               Sign in with your Google account to continue
@@ -59,7 +59,7 @@ export default function LoginPage() {
           </Button>
 
           <p className="text-center text-xs text-foreground/40">
-            By continuing, you agree to allow Optimus to access your Gmail to send and read emails on your behalf.
+            By continuing, you agree to allow MailAPT to access your Gmail to send and read emails on your behalf.
           </p>
         </div>
       </div>
