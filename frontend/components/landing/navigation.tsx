@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
+
+
 const navLinks = [
   { name: "Generate", href: "/generate" },
   { name: "Summarize", href: "/summarize" },
@@ -84,15 +86,9 @@ export function Navigation() {
                 isScrolled ? "text-xl" : "text-2xl"
               }`}
             >
-              Optimus
+              MailAPT
             </span>
-            <span
-              className={`text-muted-foreground font-mono transition-all duration-500 ${
-                isScrolled ? "text-[10px] mt-0.5" : "text-xs mt-1"
-              }`}
-            >
-              TM
-            </span>
+
           </a>
 
           {/* Desktop nav links — only when authenticated */}
