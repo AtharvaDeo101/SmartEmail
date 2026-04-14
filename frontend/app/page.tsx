@@ -20,12 +20,12 @@ export default function Home() {
       <FeaturesSection />
       <HowItWorksSection />
       <InfrastructureSection />
-      <MetricsSection />
-      <IntegrationsSection />
-      <SecuritySection />
+      {/* <MetricsSection /> */}
+      {/* <IntegrationsSection /> */}
+      {/* <SecuritySection /> */}
       <DevelopersSection />
-      <TestimonialsSection />
-      <PricingSection />
+      {/* <TestimonialsSection /> */}
+      {/* <PricingSection /> */}
       <CtaSection />
       <FooterSection />
     </main>

@@ -5,26 +5,25 @@ import { useEffect, useRef, useState } from "react";
 const features = [
   {
     number: "01",
-    title: "Instant Deployment",
-    description: "Push to production in seconds. Our edge network ensures your applications load instantly, anywhere in the world.",
-    visual: "deploy",
+    title: "Instant E-Mail",
+    description: "Generate and send an Email in just a single push of a button.",
   },
   {
     number: "02",
-    title: "AI-Native Workflows",
-    description: "Build intelligent applications with built-in AI capabilities. From inference to training, everything scales automatically.",
+    title: "AI Workflows",
+    description: "Build intelligent Email with the help of AI capabilities. From reading to writing, everything scales automatically.",
     visual: "ai",
   },
   {
     number: "03",
-    title: "Real-time Collaboration",
-    description: "Work together seamlessly. Live preview, instant feedback, and version control that actually makes sense.",
+    title: "Gmail Connection",
+    description: "Direct gmail connection as user can seamlessly read and write there mails using AI.",
     visual: "collab",
   },
   {
     number: "04",
-    title: "Enterprise Security",
-    description: "Bank-grade encryption, SOC 2 compliance, and granular access controls. Your data stays yours.",
+    title: "Security",
+    description: "Secure log-in and sign-in process.",
     visual: "security",
   },
 ];
