@@ -3,54 +3,23 @@
 import { useState, useEffect, useRef } from "react";
 import { Copy, Check } from "lucide-react";
 
-const codeExamples = [
-  {
-    label: "Install",
-    code: `npm install @optimus/sdk
-
-# or
-yarn add @optimus/sdk
-pnpm add @optimus/sdk`,
-  },
-  {
-    label: "Initialize",
-    code: `import { Optimus } from '@optimus/sdk'
-
-const optimus = new Optimus({
-  apiKey: process.env.OPTIMUS_KEY
-})`,
-  },
-  {
-    label: "Deploy",
-    code: `const app = await optimus.deploy({
-  name: 'my-app',
-  region: 'auto',
-  scaling: {
-    min: 1,
-    max: 100
-  }
-})
-
-console.log('Live at:', app.url)`,
-  },
-];
 
 const features = [
   { 
-    title: "TypeScript native", 
-    description: "Full type safety with auto-generated types."
+    title: "One-Click Email Generation", 
+    description: "Just enter a prompt → AI writes → you send. That simple."
   },
   { 
-    title: "Zero config", 
-    description: "Sensible defaults that just work."
+    title: "Professional & Polished Output", 
+    description: "Emails are structured, clear, and tailored to your intent."
   },
   { 
-    title: "Edge-ready", 
-    description: "Runs anywhere: Node, Deno, Bun, browsers."
+    title: "Smart Tone Adjustment", 
+    description: "Whether formal, friendly, persuasive, or concise. AI adapts instantly."
   },
   { 
-    title: "12KB gzipped", 
-    description: "Lightweight with zero dependencies."
+    title: "Consistency at Scale", 
+    description: "Send multiple emails with uniform quality and tone."
   },
 ];
 
@@ -88,11 +57,6 @@ export function DevelopersSection() {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(codeExamples[activeTab].code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -119,16 +83,16 @@ export function DevelopersSection() {
           >
             <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
               <span className="w-8 h-px bg-foreground/30" />
-              For developers
+              Core advantages
             </span>
             <h2 className="text-4xl lg:text-6xl font-display tracking-tight mb-8">
-              Built by devs.
+              Powered by AI.
               <br />
-              <span className="text-muted-foreground">For devs.</span>
+              <span className="text-muted-foreground">Sent by you.</span>
             </h2>
             <p className="text-xl text-muted-foreground mb-12 leading-relaxed">
-              A thoughtfully designed SDK that gets out of your way. 
-              Ship faster with intuitive APIs and exceptional documentation.
+                  No more overthinking subject lines, tone, or structure, 
+                  just type what you want, and let AI handle the rest.
             </p>
             
             {/* Features */}
@@ -148,86 +112,7 @@ export function DevelopersSection() {
             </div>
           </div>
           
-          {/* Right: Code block */}
-          <div
-            className={`lg:sticky lg:top-32 transition-all duration-700 delay-200 ${
-              isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
-            }`}
-          >
-            <div className="border border-foreground/10">
-              {/* Tabs */}
-              <div className="flex items-center border-b border-foreground/10">
-                {codeExamples.map((example, idx) => (
-                  <button
-                    key={example.label}
-                    type="button"
-                    onClick={() => setActiveTab(idx)}
-                    className={`px-6 py-4 text-sm font-mono transition-colors relative ${
-                      activeTab === idx
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {example.label}
-                    {activeTab === idx && (
-                      <span className="absolute bottom-0 left-0 right-0 h-px bg-foreground" />
-                    )}
-                  </button>
-                ))}
-                <div className="flex-1" />
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="px-4 py-4 text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Copy code"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-              
-              {/* Code content */}
-              <div className="p-8 font-mono text-sm bg-foreground/[0.01] min-h-[220px]">
-                <pre className="text-foreground/80">
-                  {codeExamples[activeTab].code.split('\n').map((line, lineIndex) => (
-                    <div 
-                      key={`${activeTab}-${lineIndex}`} 
-                      className="leading-loose dev-code-line"
-                      style={{ animationDelay: `${lineIndex * 80}ms` }}
-                    >
-                      <span className="inline-flex">
-                        {line.split('').map((char, charIndex) => (
-                          <span
-                            key={`${activeTab}-${lineIndex}-${charIndex}`}
-                            className="dev-code-char"
-                            style={{
-                              animationDelay: `${lineIndex * 80 + charIndex * 15}ms`,
-                            }}
-                          >
-                            {char === ' ' ? '\u00A0' : char}
-                          </span>
-                        ))}
-                      </span>
-                    </div>
-                  ))}
-                </pre>
-              </div>
-            </div>
-            
-            {/* Links */}
-            <div className="mt-6 flex items-center gap-6 text-sm">
-              <a href="#" className="text-foreground hover:underline underline-offset-4">
-                Read the docs
-              </a>
-              <span className="text-foreground/20">|</span>
-              <a href="#" className="text-muted-foreground hover:text-foreground">
-                View on GitHub
-              </a>
-            </div>
-          </div>
+          
         </div>
       </div>
     </section>
