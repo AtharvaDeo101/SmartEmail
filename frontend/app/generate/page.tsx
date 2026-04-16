@@ -60,9 +60,89 @@ interface GmailEmailDetail {
   subject: string;
   from: string;
   date: string;
-  body: string;       // plain text (backwards compatible)
+  body: string;
   plain_body?: string;
   html_body?: string;
+}
+
+// ── AnimatedWave ───────────────────────────────────────────────────────────
+
+function AnimatedWave() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const chars = "·∘○◯◌●◉";
+    let time = 0;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+
+    const render = () => {
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      ctx.font = "14px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const cols = Math.floor(rect.width / 20);
+      const rows = Math.floor(rect.height / 20);
+
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const px = (x + 0.5) * (rect.width / cols);
+          const py = (y + 0.5) * (rect.height / rows);
+
+          const wave1 =
+            Math.sin(x * 0.2 + time * 2) * Math.cos(y * 0.15 + time);
+          const wave2 = Math.sin((x + y) * 0.1 + time * 1.5);
+          const wave3 = Math.cos(x * 0.1 - y * 0.1 + time * 0.8);
+
+          const combined = (wave1 + wave2 + wave3) / 3;
+          const normalized = (combined + 1) / 2;
+
+          const charIndex = Math.floor(normalized * (chars.length - 1));
+          const alpha = 0.15 + normalized * 0.5;
+
+          ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+          ctx.fillText(chars[charIndex], px, py);
+        }
+      }
+
+      time += 0.03;
+      frameRef.current = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(frameRef.current);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="w-full h-full"
+      style={{ display: "block" }}
+    />
+  );
 }
 
 // ── ChatPrompt ─────────────────────────────────────────────────────────────
@@ -156,7 +236,10 @@ function ChatPrompt({ messages, onSendMessage, isLoading }: ChatPromptProps) {
           </div>
         )}
       </div>
-      <form onSubmit={handleSubmit} className="border-t border-border p-3 flex gap-2">
+      <form
+        onSubmit={handleSubmit}
+        className="border-t border-border p-3 flex gap-2"
+      >
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -318,7 +401,6 @@ function GmailEmailDetailModal({
   const [viewMode, setViewMode] = useState<"text" | "html">("text");
 
   useEffect(() => {
-    // reset mode when opening a new email
     if (isOpen) setViewMode("text");
   }, [isOpen, email?.id]);
 
@@ -377,7 +459,9 @@ function GmailEmailDetailModal({
           <>
             <div className="px-5 py-3 border-b border-border space-y-2 text-sm shrink-0">
               <div className="flex gap-3">
-                <span className="text-muted-foreground w-14 shrink-0">From</span>
+                <span className="text-muted-foreground w-14 shrink-0">
+                  From
+                </span>
                 <span className="text-foreground font-medium">
                   {email.from || "—"}
                 </span>
@@ -391,7 +475,9 @@ function GmailEmailDetailModal({
                 </span>
               </div>
               <div className="flex gap-3">
-                <span className="text-muted-foreground w-14 shrink-0">Date</span>
+                <span className="text-muted-foreground w-14 shrink-0">
+                  Date
+                </span>
                 <span className="text-foreground">{email.date || "—"}</span>
               </div>
             </div>
@@ -406,10 +492,7 @@ function GmailEmailDetailModal({
                 </pre>
               ) : (
                 <div className="prose max-w-none text-sm text-foreground">
-                  {/* We trust Gmail HTML enough in this context; if needed sanitize first */}
-                  <div
-                    dangerouslySetInnerHTML={{ __html: html }}
-                  />
+                  <div dangerouslySetInnerHTML={{ __html: html }} />
                 </div>
               )}
             </div>
@@ -710,13 +793,11 @@ export default function EmailGenerator() {
   const [drafts, setDrafts] = useState<DraftEmail[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
-  // Inbox & Sent
   const [inboxEmails, setInboxEmails] = useState<GmailEmail[]>([]);
   const [sentEmails, setSentEmails] = useState<GmailEmail[]>([]);
   const [inboxLoading, setInboxLoading] = useState(false);
   const [sentLoading, setSentLoading] = useState(false);
 
-  // Gmail detail modal
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailEmail, setDetailEmail] = useState<GmailEmailDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -830,13 +911,7 @@ export default function EmailGenerator() {
       setDrafts((prev) =>
         prev.map((d) =>
           d.id === activeDraftId
-            ? {
-                ...d,
-                subject,
-                body,
-                recipientEmail,
-                createdAt: new Date(),
-              }
+            ? { ...d, subject, body, recipientEmail, createdAt: new Date() }
             : d
         )
       );
@@ -886,11 +961,7 @@ export default function EmailGenerator() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: recipientEmail.trim(),
-          subject,
-          body,
-        }),
+        body: JSON.stringify({ to: recipientEmail.trim(), subject, body }),
       });
       if (!res.ok)
         throw new Error((await res.json()).error || "Sending failed");
@@ -904,10 +975,7 @@ export default function EmailGenerator() {
       );
       fetchSent();
     } catch (err: any) {
-      setStatus({
-        type: "error",
-        message: err.message || "Unknown error",
-      });
+      setStatus({ type: "error", message: err.message || "Unknown error" });
     } finally {
       setIsSending(false);
     }
@@ -938,14 +1006,25 @@ export default function EmailGenerator() {
           onRefreshSent={fetchSent}
           onOpenGmailEmail={handleOpenGmailEmail}
         />
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
-          <div className="max-w-2xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+
+        <main className="flex-1 overflow-y-auto">
+          {/* ── Hero Banner with AnimatedWave background ── */}
+          <div className="relative w-full h-44 overflow-hidden border-b border-border">
+            {/* Wave canvas fills the banner */}
+            <div className="absolute inset-0">
+              <AnimatedWave />
+            </div>
+
+            {/* Soft gradient overlay so text stays legible */}
+            <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
+
+            {/* Hero text + New button */}
+            <div className="relative z-10 flex items-center justify-between h-full px-8 md:px-12 max-w-2xl mx-auto w-full">
               <div>
-                <h1 className="text-xl font-semibold text-foreground tracking-tight">
+                <h1 className="text-3xl font-semibold text-foreground tracking-tight">
                   AI Email Generator
                 </h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
+                <p className="text-base text-muted-foreground mt-1">
                   Describe what you want to say — get a professional email
                   instantly.
                 </p>
@@ -954,113 +1033,118 @@ export default function EmailGenerator() {
                 variant="outline"
                 size="sm"
                 onClick={handleNewEmail}
-                className="gap-1.5"
+                className="gap-1.5 shrink-0 bg-background/70 backdrop-blur-sm"
               >
                 <PlusCircle className="h-3.5 w-3.5" />
                 New
               </Button>
             </div>
+          </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                To
-              </label>
-              <Input
-                type="email"
-                placeholder="recipient@example.com"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                className="h-11"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Chat with AI
-              </label>
-              <ChatPrompt
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                isLoading={isChatLoading}
-              />
-            </div>
-
-            {hasEmail && (
-              <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-foreground">
-                    Edit Email
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleCopy}
-                      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {copied ? (
-                        <Check className="w-3.5 h-3.5" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      {copied ? "Copied" : "Copy"}
-                    </button>
-                    <button
-                      onClick={() => setPreviewOpen(true)}
-                      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      Preview
-                    </button>
-                  </div>
-                </div>
-                <EmailEditor
-                  subject={subject}
-                  body={body}
-                  onSubjectChange={setSubject}
-                  onBodyChange={setBody}
+          {/* ── Main content ── */}
+          <div className="p-6 md:p-8">
+            <div className="max-w-2xl mx-auto space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  To
+                </label>
+                <Input
+                  type="email"
+                  placeholder="recipient@example.com"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  className="h-11"
                 />
               </div>
-            )}
 
-            {hasEmail && (
-              <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <Button
-                  variant="outline"
-                  onClick={handleSaveDraft}
-                  className="flex-1 h-11 gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  Save Draft
-                </Button>
-                <Button
-                  onClick={handleSend}
-                  disabled={!recipientEmail.trim() || isSending}
-                  className="flex-1 h-11 gap-2"
-                >
-                  {isSending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  {isSending ? "Sending…" : "Send Email"}
-                </Button>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Chat with AI
+                </label>
+                <ChatPrompt
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  isLoading={isChatLoading}
+                />
               </div>
-            )}
 
-            {status && (
-              <div
-                className={`text-sm text-center py-2 px-4 rounded-lg ${
-                  status.type === "success"
-                    ? "bg-primary/10 text-primary"
-                    : "bg-destructive/10 text-destructive"
-                }`}
-              >
-                {status.message}
-              </div>
-            )}
+              {hasEmail && (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">
+                      Edit Email
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleCopy}
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {copied ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        {copied ? "Copied" : "Copy"}
+                      </button>
+                      <button
+                        onClick={() => setPreviewOpen(true)}
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Preview
+                      </button>
+                    </div>
+                  </div>
+                  <EmailEditor
+                    subject={subject}
+                    body={body}
+                    onSubjectChange={setSubject}
+                    onBodyChange={setBody}
+                  />
+                </div>
+              )}
 
-            <p className="text-center text-xs text-muted-foreground pb-4">
-              Powered by AI · Review before sending
-            </p>
+              {hasEmail && (
+                <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveDraft}
+                    className="flex-1 h-11 gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Draft
+                  </Button>
+                  <Button
+                    onClick={handleSend}
+                    disabled={!recipientEmail.trim() || isSending}
+                    className="flex-1 h-11 gap-2"
+                  >
+                    {isSending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    {isSending ? "Sending…" : "Send Email"}
+                  </Button>
+                </div>
+              )}
+
+              {status && (
+                <div
+                  className={`text-sm text-center py-2 px-4 rounded-lg ${
+                    status.type === "success"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {status.message}
+                </div>
+              )}
+
+              <p className="text-center text-xs text-muted-foreground pb-4">
+                Powered by AI · Review before sending
+              </p>
+            </div>
           </div>
         </main>
       </div>

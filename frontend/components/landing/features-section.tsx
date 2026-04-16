@@ -93,7 +93,9 @@ function AIVisual() {
         const radius = 50;
         return (
           <g key={i}>
+
             {/* Connection line */}
+            
             <line
               x1="100"
               y1="80"
