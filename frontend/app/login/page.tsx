@@ -14,8 +14,8 @@ export default function LoginPage() {
       <div className="relative hidden lg:flex flex-col items-center justify-center p-8 bg-secondary text-white">
         <div className="max-w-md mx-auto text-center space-y-6">
           <Image
-            src="https://imgs.search.brave.com/FaUQ2xPKgxcdVo1yaUT9FCWs0qWxwZQTc1KiNAzr2Ag/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pLnBp/bmltZy5jb20vb3Jp/Z2luYWxzLzlhLzNi/LzdhLzlhM2I3YWFj/YmQ1YjYwMGVmYzdm/OGNiY2YzNmQ0ODFl/LmpwZw"
-            alt="Email Image"
+            src="/icon.png"
+            alt="MailAPT Logo"
             width={300}
             height={300}
             className="mx-auto"

@@ -13,16 +13,16 @@ export const metadata: Metadata = {
   icons: {
     // Modern browsers — SVG scales perfectly at any size
     icon: [
-      { url: '/logo.svg', type: 'image/svg+xml' },
-      { url: '/logo.png', sizes: '32x32', type: 'image/png' },
-      { url: '/logo-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon.png', sizes: '16x16', type: 'image/png' },
     ],
     // iOS Safari home screen
     apple: [
-      { url: '/logo.png', sizes: '180x180', type: 'image/png' },
+      { url: '/icon.png', sizes: '180x180', type: 'image/png' },
     ],
     // Legacy fallback
-    shortcut: '/logo.png',
+    shortcut: '/icon.png',
   },
 }
 
