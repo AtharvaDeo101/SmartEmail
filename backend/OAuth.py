@@ -55,6 +55,8 @@ CORS(
         "https://mail-apt.vercel.app",
     ],
     supports_credentials=True,
+    expose_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
