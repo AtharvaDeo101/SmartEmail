@@ -12,9 +12,12 @@ class TestIndexRoute:
     def test_index_logged_in(self, client):
         with client.session_transaction() as sess:
             sess["credentials"] = {
-                "token": "fake-token", "refresh_token": "r",
+                "token": "fake-token",
+                "refresh_token": "r",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "client_id": "c", "client_secret": "s", "scopes": [],
+                "client_id": "c",
+                "client_secret": "s",
+                "scopes": [],
             }
         response = client.get("/")
         assert json.loads(response.data)["status"] == "logged_in"
@@ -42,15 +45,16 @@ class TestMeRoute:
     @patch("OAuth.Credentials")
     def test_me_authenticated(self, mock_creds, mock_build, client):
         mock_service = MagicMock()
-        mock_service.users().getProfile(userId="me").execute.return_value = {
-            "emailAddress": "test@example.com"
-        }
+        mock_service.users().getProfile(userId="me").execute.return_value = {"emailAddress": "test@example.com"}
         mock_build.return_value = mock_service
         with client.session_transaction() as sess:
             sess["credentials"] = {
-                "token": "t", "refresh_token": "r",
+                "token": "t",
+                "refresh_token": "r",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "client_id": "c", "client_secret": "s", "scopes": [],
+                "client_id": "c",
+                "client_secret": "s",
+                "scopes": [],
             }
         response = client.get("/me")
         assert response.status_code == 200
@@ -64,9 +68,12 @@ class TestSendEmailRoute:
     def test_send_email_missing_fields(self, client):
         with client.session_transaction() as sess:
             sess["credentials"] = {
-                "token": "t", "refresh_token": "r",
+                "token": "t",
+                "refresh_token": "r",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "client_id": "c", "client_secret": "s", "scopes": [],
+                "client_id": "c",
+                "client_secret": "s",
+                "scopes": [],
             }
         with patch("OAuth.build"), patch("OAuth.Credentials"):
             response = client.post("/send_email", json={"to": "a@b.com"})
@@ -80,13 +87,14 @@ class TestSendEmailRoute:
         mock_build.return_value = mock_service
         with client.session_transaction() as sess:
             sess["credentials"] = {
-                "token": "t", "refresh_token": "r",
+                "token": "t",
+                "refresh_token": "r",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "client_id": "c", "client_secret": "s", "scopes": [],
+                "client_id": "c",
+                "client_secret": "s",
+                "scopes": [],
             }
-        response = client.post("/send_email", json={
-            "to": "test@example.com", "subject": "Test", "body": "Body"
-        })
+        response = client.post("/send_email", json={"to": "test@example.com", "subject": "Test", "body": "Body"})
         assert response.status_code == 200
         assert json.loads(response.data)["message"] == "sent"
 
@@ -143,27 +151,32 @@ class TestSummarizeEmailRoute:
 class TestHelperFunctions:
     def test_decode_body(self):
         from OAuth import _decode_body
+
         encoded = base64.urlsafe_b64encode(b"Hello World").decode()
         assert _decode_body(encoded) == "Hello World"
 
     def test_decode_body_empty(self):
         from OAuth import _decode_body
+
         assert _decode_body("") == ""
         assert _decode_body(None) == ""
 
     def test_html_to_text(self):
         from OAuth import _html_to_text
+
         result = _html_to_text("<p>Hello</p><p>World</p>")
         assert "Hello" in result and "World" in result
 
     def test_extract_plain_body(self):
         from OAuth import extract_email_body
+
         encoded = base64.urlsafe_b64encode(b"Plain content").decode()
         result = extract_email_body({"mimeType": "text/plain", "body": {"data": encoded}})
         assert result["plain_body"] == "Plain content"
 
     def test_extract_multipart_body(self):
         from OAuth import extract_email_body
+
         plain = base64.urlsafe_b64encode(b"Plain").decode()
         html = base64.urlsafe_b64encode(b"<p>HTML</p>").decode()
         payload = {

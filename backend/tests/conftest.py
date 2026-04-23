@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 os.environ.setdefault("FLASK_SECRET_KEY", "test-secret-key-for-ci")
 os.environ.setdefault("GOOGLE_CLIENT_ID", "test-client-id")
@@ -15,6 +15,7 @@ os.environ.setdefault("REDIRECT_URI", "http://localhost:5000/oauth2callback")
 @pytest.fixture
 def app():
     from OAuth import app as flask_app
+
     flask_app.config.update(
         TESTING=True,
         SESSION_TYPE="filesystem",

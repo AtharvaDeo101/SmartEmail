@@ -15,12 +15,11 @@ from dotenv import load_dotenv
 from flask_session import Session
 from flask_cors import CORS
 
-
 load_dotenv()
 
 # ─── Dev-only OAuth transport/scope relaxation ────────────────────────────────
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")  # Allow HTTP locally
-os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"             # Allow Google to return extra scopes
+os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"  # Allow Google to return extra scopes
 # ─────────────────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
@@ -77,7 +76,10 @@ def generate_with_api(prompt: str) -> str:
         {"role": "user", "content": f"Write a professional email about: {prompt}"},
     ]
     response = hf_client.chat_completion(
-        model=HF_MODEL, messages=messages, max_tokens=400, temperature=0.7,
+        model=HF_MODEL,
+        messages=messages,
+        max_tokens=400,
+        temperature=0.7,
     )
     return response.choices[0].message.content.strip()
 
@@ -100,7 +102,10 @@ def summarize_with_api(content: str, summary_type: str = "brief") -> str:
         {"role": "user", "content": f"{instruction}\n\nEmail:\n{content}"},
     ]
     response = hf_client.chat_completion(
-        model=HF_MODEL, messages=messages, max_tokens=300, temperature=0.3,
+        model=HF_MODEL,
+        messages=messages,
+        max_tokens=300,
+        temperature=0.3,
     )
     return response.choices[0].message.content.strip()
 
@@ -124,11 +129,7 @@ def login():
     code_verifier = secrets.token_urlsafe(32)
     session["code_verifier"] = code_verifier
 
-    code_challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
-        .decode()
-        .rstrip("=")
-    )
+    code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).decode().rstrip("=")
 
     flow = Flow.from_client_config(
         client_config={
@@ -242,9 +243,7 @@ def list_emails():
     max_results = request.args.get("max_results", 10, type=int)
     query = request.args.get("q", "")
 
-    result = (
-        service.users().messages().list(userId="me", maxResults=max_results, q=query).execute()
-    )
+    result = service.users().messages().list(userId="me", maxResults=max_results, q=query).execute()
     messages = result.get("messages", [])
 
     email_list = []
@@ -256,12 +255,14 @@ def list_emails():
             .execute()
         )
         headers = msg.get("payload", {}).get("headers", [])
-        email_list.append({
-            "id": m["id"],
-            "subject": next((h["value"] for h in headers if h["name"] == "Subject"), ""),
-            "from":    next((h["value"] for h in headers if h["name"] == "From"), ""),
-            "date":    next((h["value"] for h in headers if h["name"] == "Date"), ""),
-        })
+        email_list.append(
+            {
+                "id": m["id"],
+                "subject": next((h["value"] for h in headers if h["name"] == "Subject"), ""),
+                "from": next((h["value"] for h in headers if h["name"] == "From"), ""),
+                "date": next((h["value"] for h in headers if h["name"] == "Date"), ""),
+            }
+        )
 
     return jsonify({"emails": email_list})
 
@@ -325,15 +326,17 @@ def get_email(email_id):
     headers = payload.get("headers", [])
     bodies = extract_email_body(payload)
 
-    return jsonify({
-        "id":         email_id,
-        "subject":    next((h["value"] for h in headers if h["name"] == "Subject"), ""),
-        "from":       next((h["value"] for h in headers if h["name"] == "From"), ""),
-        "date":       next((h["value"] for h in headers if h["name"] == "Date"), ""),
-        "body":       bodies["plain_body"],
-        "plain_body": bodies["plain_body"],
-        "html_body":  bodies["html_body"],
-    })
+    return jsonify(
+        {
+            "id": email_id,
+            "subject": next((h["value"] for h in headers if h["name"] == "Subject"), ""),
+            "from": next((h["value"] for h in headers if h["name"] == "From"), ""),
+            "date": next((h["value"] for h in headers if h["name"] == "Date"), ""),
+            "body": bodies["plain_body"],
+            "plain_body": bodies["plain_body"],
+            "html_body": bodies["html_body"],
+        }
+    )
 
 
 @app.route("/create_draft", methods=["POST"])
@@ -351,9 +354,7 @@ def create_draft():
     message["to"] = to
     message["subject"] = subject
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-    draft = (
-        service.users().drafts().create(userId="me", body={"message": {"raw": raw}}).execute()
-    )
+    draft = service.users().drafts().create(userId="me", body={"message": {"raw": raw}}).execute()
     return jsonify({"message": "draft_created", "id": draft.get("id")})
 
 
@@ -383,8 +384,8 @@ def generate_email():
 
         for i, line in enumerate(lines):
             if line.lower().startswith("subject:"):
-                subject = line[len("subject:"):].strip()
-                body_lines = lines[i + 1:]
+                subject = line[len("subject:") :].strip()
+                body_lines = lines[i + 1 :]
                 break
 
         while body_lines and not body_lines[0].strip():
@@ -416,12 +417,14 @@ def summarize_email():
 
     try:
         summary = summarize_with_api(content, summary_type=summary_type)
-        return jsonify({
-            "summary":         summary,
-            "type":            summary_type,
-            "original_length": len(content),
-            "summary_length":  len(summary),
-        })
+        return jsonify(
+            {
+                "summary": summary,
+                "type": summary_type,
+                "original_length": len(content),
+                "summary_length": len(summary),
+            }
+        )
     except Exception as e:
         app.logger.error(f"summarize_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
