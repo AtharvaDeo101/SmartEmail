@@ -3,9 +3,11 @@
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://<your-render-app>.onrender.com"
+
 export default function LoginPage() {
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:5000/login";
+    window.location.href = `${BACKEND_URL}/login`;
   };
 
   return (
