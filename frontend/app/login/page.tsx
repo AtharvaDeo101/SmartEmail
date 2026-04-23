@@ -3,8 +3,9 @@
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL
-
+const BACKEND_URL = typeof window !== "undefined" && window.location.hostname !== "localhost"
+  ? ""        // production: use /api/* rewrite (same origin)
+  : "http://localhost:5000"  // local: direct to Flask
 export default function LoginPage() {
   const handleGoogleLogin = () => {
     if (!BACKEND_URL) {

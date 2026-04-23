@@ -11,7 +11,9 @@ import { DevelopersSection } from "@/components/landing/benifits";
 import { CtaSection } from "@/components/landing/cta-section";
 import { FooterSection } from "@/components/landing/footer-section";
 
-const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = typeof window !== "undefined" && window.location.hostname !== "localhost"
+  ? ""        // production: use /api/* rewrite (same origin)
+  : "http://localhost:5000"  // local: direct to Flask
 
 export default function Home() {
   const router = useRouter();

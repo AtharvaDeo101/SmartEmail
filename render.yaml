@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: mailapt-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn OAuth:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: FLASK_SECRET_KEY
+        sync: false
+      - key: HF_API_TOKEN
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+
+  - type: web
+    name: mailapt-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install -g pnpm && pnpm install && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: NEXT_PUBLIC_BACKEND_URL
+        sync: false

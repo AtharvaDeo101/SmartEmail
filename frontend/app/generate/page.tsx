@@ -30,8 +30,9 @@ import {
   Code,
 } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-
+const BACKEND_URL = typeof window !== "undefined" && window.location.hostname !== "localhost"
+  ? ""        // production: use /api/* rewrite (same origin)
+  : "http://localhost:5000"  // local: direct to Flask
 
 interface ChatMessage {
   id: string;

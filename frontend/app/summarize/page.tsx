@@ -24,8 +24,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const API = "http://localhost:5000";
-
+const BACKEND_URL = typeof window !== "undefined" && window.location.hostname !== "localhost"
+  ? ""        // production: use /api/* rewrite (same origin)
+  : "http://localhost:5000"  // local: direct to Flask
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface GmailEmail {
