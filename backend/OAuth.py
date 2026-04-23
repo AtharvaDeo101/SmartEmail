@@ -1,19 +1,19 @@
-import os
 import base64
-import secrets
 import hashlib
+import os
+import secrets
 from email.mime.text import MIMEText
 from html import unescape
-from bs4 import BeautifulSoup
 
-from huggingface_hub import InferenceClient
-from flask import Flask, redirect, session, request, jsonify
-from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from flask_session import Session
+from flask import Flask, jsonify, redirect, request, session
 from flask_cors import CORS
+from flask_session import Session
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from huggingface_hub import InferenceClient
 
 load_dotenv()
 

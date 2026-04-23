@@ -1,6 +1,6 @@
-import json
-from unittest.mock import patch, MagicMock
 import base64
+import json
+from unittest.mock import MagicMock, patch
 
 
 class TestIndexRoute:
