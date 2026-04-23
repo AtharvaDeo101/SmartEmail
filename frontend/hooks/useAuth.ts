@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
-export function useAuth(redirectTo: string = "/generate") {
+export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     const check = async () => {
@@ -23,13 +21,12 @@ export function useAuth(redirectTo: string = "/generate") {
           }
         }
       } catch {
-        // network error — treat as unauthenticated
+        // network error
       }
       setIsAuthenticated(false);
-      router.replace("/login");
     };
     check();
-  }, [router, redirectTo]);
+  }, []);
 
   return isAuthenticated;
 }

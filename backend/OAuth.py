@@ -39,8 +39,8 @@ app.config.update(
     SESSION_USE_SIGNER=True,
     SESSION_COOKIE_NAME="session",
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=IS_PRODUCTION,
-    SESSION_COOKIE_SAMESITE="None" if IS_PRODUCTION else "Lax",
+    SESSION_COOKIE_SECURE=True,        # ← always True (Render uses HTTPS)
+    SESSION_COOKIE_SAMESITE="None",    # ← always None for cross-domain
     PERMANENT_SESSION_LIFETIME=1800,
 )
 
