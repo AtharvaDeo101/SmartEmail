@@ -5,6 +5,7 @@ import secrets
 from email.mime.text import MIMEText
 from html import unescape
 
+
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, session
@@ -15,15 +16,22 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from huggingface_hub import InferenceClient
 
+
 load_dotenv()
 
+
 # ─── Dev-only OAuth transport/scope relaxation ────────────────────────────────
-os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")  # Allow HTTP locally
+if os.environ.get("FLASK_ENV") != "production":
+    os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")  # Allow HTTP locally
 os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"  # Allow Google to return extra scopes
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(24)
+
+
+IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
 
 app.config.update(
     SESSION_TYPE="filesystem",
@@ -32,17 +40,20 @@ app.config.update(
     SESSION_USE_SIGNER=True,
     SESSION_COOKIE_NAME="session",
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=False,
-    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=IS_PRODUCTION,
+    SESSION_COOKIE_SAMESITE="None" if IS_PRODUCTION else "Lax",
     PERMANENT_SESSION_LIFETIME=1800,
 )
 
+
 Session(app)
 
-CORS(
-    app,
-    resources={r"/*": {"origins": "http://localhost:3000", "supports_credentials": True}},
-)
+
+CORS(app, origins=[
+    "http://localhost:3000",
+    "https://mail-apt.vercel.app",
+], supports_credentials=True)
+
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
@@ -51,13 +62,16 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.modify",
 ]
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000/")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://mail-apt.vercel.app")
 REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/oauth2callback")
+
 
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
 HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 
+
 hf_client = InferenceClient(token=HF_API_TOKEN)
+
 
 
 def generate_with_api(prompt: str) -> str:
@@ -82,6 +96,7 @@ def generate_with_api(prompt: str) -> str:
         temperature=0.7,
     )
     return response.choices[0].message.content.strip()
+
 
 
 def summarize_with_api(content: str, summary_type: str = "brief") -> str:
@@ -110,11 +125,13 @@ def summarize_with_api(content: str, summary_type: str = "brief") -> str:
     return response.choices[0].message.content.strip()
 
 
+
 def get_gmail_service():
     if "credentials" not in session:
         return None
     creds = Credentials(**session["credentials"])
     return build("gmail", "v1", credentials=creds)
+
 
 
 @app.route("/")
@@ -124,12 +141,15 @@ def index():
     return jsonify({"status": "not_logged_in"})
 
 
+
 @app.route("/login")
 def login():
     code_verifier = secrets.token_urlsafe(32)
     session["code_verifier"] = code_verifier
 
+
     code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).decode().rstrip("=")
+
 
     flow = Flow.from_client_config(
         client_config={
@@ -145,6 +165,7 @@ def login():
     )
     flow.redirect_uri = REDIRECT_URI
 
+
     authorization_url, state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
@@ -156,6 +177,7 @@ def login():
     return redirect(authorization_url)
 
 
+
 @app.route("/oauth2callback")
 def oauth2callback():
     if "state" not in session or session["state"] != request.args.get("state"):
@@ -163,7 +185,9 @@ def oauth2callback():
     if "code_verifier" not in session:
         return "Code verifier not found in session", 400
 
+
     code_verifier = session.pop("code_verifier")
+
 
     flow = Flow.from_client_config(
         client_config={
@@ -180,13 +204,18 @@ def oauth2callback():
     )
     flow.redirect_uri = REDIRECT_URI
 
-    # Normalize scheme for local dev (in case a proxy rewrites http→https)
-    authorization_response = request.url.replace("https://", "http://", 1)
+
+    # Only normalize scheme in local dev — on Render, keep https://
+    authorization_response = request.url
+    if not IS_PRODUCTION:
+        authorization_response = authorization_response.replace("https://", "http://", 1)
+
 
     flow.fetch_token(
         authorization_response=authorization_response,
         code_verifier=code_verifier,
     )
+
 
     creds = flow.credentials
     session["credentials"] = {
@@ -200,10 +229,12 @@ def oauth2callback():
     return redirect(FRONTEND_URL)
 
 
+
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return jsonify({"status": "logged_out"})
+
 
 
 @app.route("/me")
@@ -215,16 +246,19 @@ def me():
     return jsonify(profile)
 
 
+
 @app.route("/send_email", methods=["POST"])
 def send_email():
     service = get_gmail_service()
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
+
     data = request.get_json() or {}
     to, subject, body = data.get("to"), data.get("subject"), data.get("body")
     if not all([to, subject, body]):
         return jsonify({"error": "to, subject, body are required"}), 400
+
 
     message = MIMEText(body)
     message["to"] = to
@@ -234,17 +268,21 @@ def send_email():
     return jsonify({"message": "sent", "id": sent.get("id")})
 
 
+
 @app.route("/list_emails", methods=["GET"])
 def list_emails():
     service = get_gmail_service()
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
+
     max_results = request.args.get("max_results", 10, type=int)
     query = request.args.get("q", "")
 
+
     result = service.users().messages().list(userId="me", maxResults=max_results, q=query).execute()
     messages = result.get("messages", [])
+
 
     email_list = []
     for m in messages:
@@ -264,7 +302,9 @@ def list_emails():
             }
         )
 
+
     return jsonify({"emails": email_list})
+
 
 
 def _decode_body(data: str) -> str:
@@ -272,6 +312,7 @@ def _decode_body(data: str) -> str:
         return ""
     decoded = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
     return unescape(decoded)
+
 
 
 def _html_to_text(html: str) -> str:
@@ -283,9 +324,11 @@ def _html_to_text(html: str) -> str:
     return "\n".join(ln for ln in lines if ln)
 
 
+
 def extract_email_body(payload):
     plain_body = ""
     html_body = ""
+
 
     def walk_parts(part):
         nonlocal plain_body, html_body
@@ -298,6 +341,7 @@ def extract_email_body(payload):
         for sub in part.get("parts", []) or []:
             walk_parts(sub)
 
+
     if "parts" in payload:
         for p in payload["parts"]:
             walk_parts(p)
@@ -309,10 +353,13 @@ def extract_email_body(payload):
         elif mime_type == "text/html" and data:
             html_body = _decode_body(data)
 
+
     if not plain_body and html_body:
         plain_body = _html_to_text(html_body)
 
+
     return {"plain_body": plain_body, "html_body": html_body}
+
 
 
 @app.route("/get_email/<email_id>", methods=["GET"])
@@ -321,10 +368,12 @@ def get_email(email_id):
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
+
     msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
     payload = msg.get("payload", {})
     headers = payload.get("headers", [])
     bodies = extract_email_body(payload)
+
 
     return jsonify(
         {
@@ -339,16 +388,19 @@ def get_email(email_id):
     )
 
 
+
 @app.route("/create_draft", methods=["POST"])
 def create_draft():
     service = get_gmail_service()
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
+
     data = request.get_json() or {}
     to, subject, body = data.get("to"), data.get("subject"), data.get("body")
     if not all([to, subject, body]):
         return jsonify({"error": "to, subject, body are required"}), 400
+
 
     message = MIMEText(body)
     message["to"] = to
@@ -356,6 +408,7 @@ def create_draft():
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     draft = service.users().drafts().create(userId="me", body={"message": {"raw": raw}}).execute()
     return jsonify({"message": "draft_created", "id": draft.get("id")})
+
 
 
 @app.route("/list_labels", methods=["GET"])
@@ -367,20 +420,24 @@ def list_labels():
     return jsonify({"labels": result.get("labels", [])})
 
 
+
 @app.route("/generate_email", methods=["POST"])
 def generate_email():
     if "credentials" not in session:
         return jsonify({"error": "not_authenticated"}), 401
+
 
     data = request.get_json() or {}
     prompt = data.get("prompt")
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
 
+
     try:
         text = generate_with_api(prompt)
         lines = text.strip().splitlines()
         subject, body_lines = "", []
+
 
         for i, line in enumerate(lines):
             if line.lower().startswith("subject:"):
@@ -388,8 +445,10 @@ def generate_email():
                 body_lines = lines[i + 1 :]
                 break
 
+
         while body_lines and not body_lines[0].strip():
             body_lines.pop(0)
+
 
         body = "\n".join(body_lines).strip()
         if not subject:
@@ -397,11 +456,14 @@ def generate_email():
         if not body:
             body = text.strip()
 
+
         return jsonify({"subject": subject, "body": body, "raw_output": text})
+
 
     except Exception as e:
         app.logger.error(f"generate_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.route("/summarize_email", methods=["POST"])
@@ -409,11 +471,13 @@ def summarize_email():
     if "credentials" not in session:
         return jsonify({"error": "not_authenticated"}), 401
 
+
     data = request.get_json() or {}
     content = data.get("content")
     summary_type = data.get("type", "brief")
     if not content:
         return jsonify({"error": "content is required"}), 400
+
 
     try:
         summary = summarize_with_api(content, summary_type=summary_type)
@@ -428,6 +492,7 @@ def summarize_email():
     except Exception as e:
         app.logger.error(f"summarize_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
