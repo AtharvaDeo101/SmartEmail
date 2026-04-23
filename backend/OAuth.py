@@ -4,7 +4,7 @@ import secrets
 import hashlib
 from email.mime.text import MIMEText
 from html import unescape
-from bs4 import BeautifulSoup  # NEW: for HTML → text
+from bs4 import BeautifulSoup
 
 from huggingface_hub import InferenceClient
 from flask import Flask, redirect, session, request, jsonify
@@ -15,7 +15,13 @@ from dotenv import load_dotenv
 from flask_session import Session
 from flask_cors import CORS
 
+
 load_dotenv()
+
+# ─── Dev-only OAuth transport/scope relaxation ────────────────────────────────
+os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")  # Allow HTTP locally
+os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"             # Allow Google to return extra scopes
+# ─────────────────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(24)
@@ -27,7 +33,7 @@ app.config.update(
     SESSION_USE_SIGNER=True,
     SESSION_COOKIE_NAME="session",
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=False,  # Set True in production with HTTPS
+    SESSION_COOKIE_SECURE=False,
     SESSION_COOKIE_SAMESITE="Lax",
     PERMANENT_SESSION_LIFETIME=1800,
 )
@@ -68,17 +74,10 @@ def generate_with_api(prompt: str) -> str:
                 "\n\nDo not include any explanation outside the email itself."
             ),
         },
-        {
-            "role": "user",
-            "content": f"Write a professional email about: {prompt}",
-        },
+        {"role": "user", "content": f"Write a professional email about: {prompt}"},
     ]
-
     response = hf_client.chat_completion(
-        model=HF_MODEL,
-        messages=messages,
-        max_tokens=400,
-        temperature=0.7,
+        model=HF_MODEL, messages=messages, max_tokens=400, temperature=0.7,
     )
     return response.choices[0].message.content.strip()
 
@@ -96,23 +95,12 @@ def summarize_with_api(content: str, summary_type: str = "brief") -> str:
             "- Action Items (bullet list)\n"
             "- Sentiment (one phrase describing the tone)"
         )
-
     messages = [
-        {
-            "role": "system",
-            "content": "You are an expert email summarizer. Be concise and accurate.",
-        },
-        {
-            "role": "user",
-            "content": f"{instruction}\n\nEmail:\n{content}",
-        },
+        {"role": "system", "content": "You are an expert email summarizer. Be concise and accurate."},
+        {"role": "user", "content": f"{instruction}\n\nEmail:\n{content}"},
     ]
-
     response = hf_client.chat_completion(
-        model=HF_MODEL,
-        messages=messages,
-        max_tokens=300,
-        temperature=0.3,
+        model=HF_MODEL, messages=messages, max_tokens=300, temperature=0.3,
     )
     return response.choices[0].message.content.strip()
 
@@ -191,8 +179,11 @@ def oauth2callback():
     )
     flow.redirect_uri = REDIRECT_URI
 
+    # Normalize scheme for local dev (in case a proxy rewrites http→https)
+    authorization_response = request.url.replace("https://", "http://", 1)
+
     flow.fetch_token(
-        authorization_response=request.url,
+        authorization_response=authorization_response,
         code_verifier=code_verifier,
     )
 
@@ -203,7 +194,7 @@ def oauth2callback():
         "token_uri": creds.token_uri,
         "client_id": creds.client_id,
         "client_secret": creds.client_secret,
-        "scopes": creds.scopes,
+        "scopes": list(creds.scopes) if creds.scopes else [],
     }
     return redirect(FRONTEND_URL)
 
@@ -230,17 +221,13 @@ def send_email():
         return jsonify({"error": "not_authenticated"}), 401
 
     data = request.get_json() or {}
-    to = data.get("to")
-    subject = data.get("subject")
-    body = data.get("body")
-
+    to, subject, body = data.get("to"), data.get("subject"), data.get("body")
     if not all([to, subject, body]):
         return jsonify({"error": "to, subject, body are required"}), 400
 
     message = MIMEText(body)
     message["to"] = to
     message["subject"] = subject
-
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     sent = service.users().messages().send(userId="me", body={"raw": raw}).execute()
     return jsonify({"message": "sent", "id": sent.get("id")})
@@ -256,10 +243,7 @@ def list_emails():
     query = request.args.get("q", "")
 
     result = (
-        service.users()
-        .messages()
-        .list(userId="me", maxResults=max_results, q=query)
-        .execute()
+        service.users().messages().list(userId="me", maxResults=max_results, q=query).execute()
     )
     messages = result.get("messages", [])
 
@@ -268,29 +252,16 @@ def list_emails():
         msg = (
             service.users()
             .messages()
-            .get(
-                userId="me",
-                id=m["id"],
-                format="metadata",
-                metadataHeaders=["Subject", "From", "Date"],
-            )
+            .get(userId="me", id=m["id"], format="metadata", metadataHeaders=["Subject", "From", "Date"])
             .execute()
         )
         headers = msg.get("payload", {}).get("headers", [])
-        email_list.append(
-            {
-                "id": m["id"],
-                "subject": next(
-                    (h["value"] for h in headers if h["name"] == "Subject"), ""
-                ),
-                "from": next(
-                    (h["value"] for h in headers if h["name"] == "From"), ""
-                ),
-                "date": next(
-                    (h["value"] for h in headers if h["name"] == "Date"), ""
-                ),
-            }
-        )
+        email_list.append({
+            "id": m["id"],
+            "subject": next((h["value"] for h in headers if h["name"] == "Subject"), ""),
+            "from":    next((h["value"] for h in headers if h["name"] == "From"), ""),
+            "date":    next((h["value"] for h in headers if h["name"] == "Date"), ""),
+        })
 
     return jsonify({"emails": email_list})
 
@@ -307,20 +278,11 @@ def _html_to_text(html: str) -> str:
         return ""
     soup = BeautifulSoup(html, "html.parser")
     text = soup.get_text(separator="\n")
-    # collapse multiple blank lines
     lines = [line.strip() for line in text.splitlines()]
-    lines = [ln for ln in lines if ln]
-    return "\n".join(lines)
+    return "\n".join(ln for ln in lines if ln)
 
 
 def extract_email_body(payload):
-    """
-    Returns dict with both plain text and HTML if available:
-    {
-      "plain_body": "...",
-      "html_body": "..."
-    }
-    """
     plain_body = ""
     html_body = ""
 
@@ -328,21 +290,17 @@ def extract_email_body(payload):
         nonlocal plain_body, html_body
         mime_type = part.get("mimeType", "")
         body_data = part.get("body", {}).get("data")
-
         if mime_type == "text/plain" and body_data and not plain_body:
             plain_body = _decode_body(body_data)
         elif mime_type == "text/html" and body_data and not html_body:
             html_body = _decode_body(body_data)
-
         for sub in part.get("parts", []) or []:
             walk_parts(sub)
 
-    # multipart
     if "parts" in payload:
         for p in payload["parts"]:
             walk_parts(p)
     else:
-        # single-part message
         mime_type = payload.get("mimeType", "")
         data = payload.get("body", {}).get("data")
         if mime_type == "text/plain" and data:
@@ -350,14 +308,10 @@ def extract_email_body(payload):
         elif mime_type == "text/html" and data:
             html_body = _decode_body(data)
 
-    # If we only have HTML, derive plain text from it
     if not plain_body and html_body:
         plain_body = _html_to_text(html_body)
 
-    return {
-        "plain_body": plain_body,
-        "html_body": html_body,
-    }
+    return {"plain_body": plain_body, "html_body": html_body}
 
 
 @app.route("/get_email/<email_id>", methods=["GET"])
@@ -366,34 +320,20 @@ def get_email(email_id):
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
-    msg = (
-        service.users()
-        .messages()
-        .get(userId="me", id=email_id, format="full")
-        .execute()
-    )
+    msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
     payload = msg.get("payload", {})
     headers = payload.get("headers", [])
-
     bodies = extract_email_body(payload)
 
-    return jsonify(
-        {
-            "id": email_id,
-            "subject": next(
-                (h["value"] for h in headers if h["name"] == "Subject"), ""
-            ),
-            "from": next(
-                (h["value"] for h in headers if h["name"] == "From"), ""
-            ),
-            "date": next(
-                (h["value"] for h in headers if h["name"] == "Date"), ""
-            ),
-            "body": bodies["plain_body"],      # for backward compatibility
-            "plain_body": bodies["plain_body"],
-            "html_body": bodies["html_body"],
-        }
-    )
+    return jsonify({
+        "id":         email_id,
+        "subject":    next((h["value"] for h in headers if h["name"] == "Subject"), ""),
+        "from":       next((h["value"] for h in headers if h["name"] == "From"), ""),
+        "date":       next((h["value"] for h in headers if h["name"] == "Date"), ""),
+        "body":       bodies["plain_body"],
+        "plain_body": bodies["plain_body"],
+        "html_body":  bodies["html_body"],
+    })
 
 
 @app.route("/create_draft", methods=["POST"])
@@ -403,23 +343,16 @@ def create_draft():
         return jsonify({"error": "not_authenticated"}), 401
 
     data = request.get_json() or {}
-    to = data.get("to")
-    subject = data.get("subject")
-    body = data.get("body")
-
+    to, subject, body = data.get("to"), data.get("subject"), data.get("body")
     if not all([to, subject, body]):
         return jsonify({"error": "to, subject, body are required"}), 400
 
     message = MIMEText(body)
     message["to"] = to
     message["subject"] = subject
-
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     draft = (
-        service.users()
-        .drafts()
-        .create(userId="me", body={"message": {"raw": raw}})
-        .execute()
+        service.users().drafts().create(userId="me", body={"message": {"raw": raw}}).execute()
     )
     return jsonify({"message": "draft_created", "id": draft.get("id")})
 
@@ -429,7 +362,6 @@ def list_labels():
     service = get_gmail_service()
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
-
     result = service.users().labels().list(userId="me").execute()
     return jsonify({"labels": result.get("labels", [])})
 
@@ -446,22 +378,19 @@ def generate_email():
 
     try:
         text = generate_with_api(prompt)
-
         lines = text.strip().splitlines()
-        subject = ""
-        body_lines = []
+        subject, body_lines = "", []
 
         for i, line in enumerate(lines):
             if line.lower().startswith("subject:"):
-                subject = line[len("subject:") :].strip()
-                body_lines = lines[i + 1 :]
+                subject = line[len("subject:"):].strip()
+                body_lines = lines[i + 1:]
                 break
 
         while body_lines and not body_lines[0].strip():
             body_lines.pop(0)
 
         body = "\n".join(body_lines).strip()
-
         if not subject:
             subject = prompt[:60]
         if not body:
@@ -482,22 +411,17 @@ def summarize_email():
     data = request.get_json() or {}
     content = data.get("content")
     summary_type = data.get("type", "brief")
-
     if not content:
         return jsonify({"error": "content is required"}), 400
 
     try:
         summary = summarize_with_api(content, summary_type=summary_type)
-
-        return jsonify(
-            {
-                "summary": summary,
-                "type": summary_type,
-                "original_length": len(content),
-                "summary_length": len(summary),
-            }
-        )
-
+        return jsonify({
+            "summary":         summary,
+            "type":            summary_type,
+            "original_length": len(content),
+            "summary_length":  len(summary),
+        })
     except Exception as e:
         app.logger.error(f"summarize_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
