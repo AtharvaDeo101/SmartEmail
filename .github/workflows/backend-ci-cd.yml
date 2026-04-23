@@ -42,3 +42,9 @@ jobs:
         run: |
           python -m py_compile OAuth.py
           echo "Syntax check passed"
+          
+      - name: Lint with flake8
+        working-directory: backend
+        run: |
+          pip install flake8
+          flake8 OAuth.py --max-line-length=120 --ignore=E501,W503,E241
