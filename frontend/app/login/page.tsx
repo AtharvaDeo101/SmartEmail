@@ -3,16 +3,15 @@
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
-const BACKEND_URL = typeof window !== "undefined" && window.location.hostname !== "localhost"
-  ? ""        // production: use /api/* rewrite (same origin)
-  : "http://localhost:5000"  // local: direct to Flask
 export default function LoginPage() {
   const handleGoogleLogin = () => {
-    if (!BACKEND_URL) {
-      alert("Backend URL is not configured. Set NEXT_PUBLIC_BACKEND_URL in your .env.local file.")
-      return
-    }
-    window.location.href = `${BACKEND_URL}/login`
+    // In production: /api/login is rewritten to backend by next.config.mjs
+    // In local dev: direct to localhost:5000
+    const loginUrl = process.env.NODE_ENV === "production"
+      ? "/api/login"
+      : "http://localhost:5000/login"
+
+    window.location.href = loginUrl
   }
 
   return (
@@ -64,12 +63,6 @@ export default function LoginPage() {
             </svg>
             Continue with Google
           </Button>
-
-          {!BACKEND_URL && (
-            <p className="text-center text-xs text-red-500">
-              ⚠️ NEXT_PUBLIC_BACKEND_URL is not set.
-            </p>
-          )}
 
           <p className="text-center text-xs text-foreground/40">
             By continuing, you agree to allow MailAPT to access your Gmail to send and read emails on your behalf.
