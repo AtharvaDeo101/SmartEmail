@@ -3,12 +3,16 @@
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://<your-render-app>.onrender.com"
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL
 
 export default function LoginPage() {
   const handleGoogleLogin = () => {
-    window.location.href = `${BACKEND_URL}/login`;
-  };
+    if (!BACKEND_URL) {
+      alert("Backend URL is not configured. Set NEXT_PUBLIC_BACKEND_URL in your .env.local file.")
+      return
+    }
+    window.location.href = `${BACKEND_URL}/login`
+  }
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
@@ -60,11 +64,17 @@ export default function LoginPage() {
             Continue with Google
           </Button>
 
+          {!BACKEND_URL && (
+            <p className="text-center text-xs text-red-500">
+              ⚠️ NEXT_PUBLIC_BACKEND_URL is not set.
+            </p>
+          )}
+
           <p className="text-center text-xs text-foreground/40">
             By continuing, you agree to allow MailAPT to access your Gmail to send and read emails on your behalf.
           </p>
         </div>
       </div>
     </div>
-  );
+  )
 }
