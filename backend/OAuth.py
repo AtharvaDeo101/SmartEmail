@@ -5,60 +5,55 @@ import secrets
 from email.mime.text import MIMEText
 from html import unescape
 
-
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, session
 from flask_cors import CORS
-from flask_session import Session
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from huggingface_hub import InferenceClient
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 load_dotenv()
 
-
-# ─── Dev-only OAuth transport/scope relaxation ────────────────────────────────
 if os.environ.get("FLASK_ENV") != "production":
-    os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")  # Allow HTTP locally
-os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"  # Allow Google to return extra scopes
-# ─────────────────────────────────────────────────────────────────────────────
-
+    os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(24)
 
+# ── Required for Render: trust the HTTPS proxy headers ──
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(24)
 
 IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
 
+# ── Use Flask built-in cookie sessions (no filesystem) ──
+# Filesystem sessions don't persist on Render's ephemeral containers
 app.config.update(
-    SESSION_TYPE="filesystem",
-    SESSION_FILE_DIR="./flask_session",
-    SESSION_PERMANENT=False,
-    SESSION_USE_SIGNER=True,
     SESSION_COOKIE_NAME="session",
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=True,        # ← always True (Render uses HTTPS)
-    SESSION_COOKIE_SAMESITE="None",    # ← always None for cross-domain
+    SESSION_COOKIE_SECURE=IS_PRODUCTION,
+    SESSION_COOKIE_SAMESITE="None" if IS_PRODUCTION else "Lax",
     PERMANENT_SESSION_LIFETIME=1800,
 )
 
-
-Session(app)
-
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/oauth2callback")
 
 CORS(
     app,
     origins=[
         "http://localhost:3000",
         "https://mail-apt.vercel.app",
+        FRONTEND_URL,
     ],
     supports_credentials=True,
     expose_headers=["Content-Type"],
     allow_headers=["Content-Type", "Authorization"],
 )
-
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
@@ -67,13 +62,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.modify",
 ]
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://mail-apt.vercel.app")
-REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/oauth2callback")
-
 
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
 HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
-
 
 hf_client = InferenceClient(token=HF_API_TOKEN)
 
@@ -146,8 +137,13 @@ def index():
 def login():
     code_verifier = secrets.token_urlsafe(32)
     session["code_verifier"] = code_verifier
+    session.modified = True
 
-    code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).decode().rstrip("=")
+    code_challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+        .decode()
+        .rstrip("=")
+    )
 
     flow = Flow.from_client_config(
         client_config={
@@ -171,14 +167,22 @@ def login():
         code_challenge_method="S256",
     )
     session["state"] = state
+    session.modified = True
+
     return redirect(authorization_url)
 
 
 @app.route("/oauth2callback")
 def oauth2callback():
-    if "state" not in session or session["state"] != request.args.get("state"):
+    incoming_state = request.args.get("state")
+    stored_state = session.get("state")
+
+    if not stored_state or stored_state != incoming_state:
+        app.logger.error(f"State mismatch: stored={stored_state}, incoming={incoming_state}")
         return "Invalid state parameter", 400
+
     if "code_verifier" not in session:
+        app.logger.error("Code verifier missing from session")
         return "Code verifier not found in session", 400
 
     code_verifier = session.pop("code_verifier")
@@ -194,11 +198,11 @@ def oauth2callback():
             }
         },
         scopes=SCOPES,
-        state=session["state"],
+        state=stored_state,
     )
     flow.redirect_uri = REDIRECT_URI
 
-    # Only normalize scheme in local dev — on Render, keep https://
+    # ProxyFix ensures request.url is always https:// on Render
     authorization_response = request.url
     if not IS_PRODUCTION:
         authorization_response = authorization_response.replace("https://", "http://", 1)
@@ -217,7 +221,17 @@ def oauth2callback():
         "client_secret": creds.client_secret,
         "scopes": list(creds.scopes) if creds.scopes else [],
     }
-    return redirect(FRONTEND_URL)
+    session.modified = True
+
+    # ── Pass email to frontend via URL so it can store in localStorage ──
+    try:
+        service = build("gmail", "v1", credentials=creds)
+        profile = service.users().getProfile(userId="me").execute()
+        email = profile.get("emailAddress", "")
+    except Exception:
+        email = ""
+
+    return redirect(f"{FRONTEND_URL}?login=success&email={email}")
 
 
 @app.route("/logout", methods=["POST"])
@@ -404,8 +418,8 @@ def generate_email():
 
         for i, line in enumerate(lines):
             if line.lower().startswith("subject:"):
-                subject = line[len("subject:") :].strip()
-                body_lines = lines[i + 1 :]
+                subject = line[len("subject:"):].strip()
+                body_lines = lines[i + 1:]
                 break
 
         while body_lines and not body_lines[0].strip():
@@ -451,5 +465,4 @@ def summarize_email():
 
 
 if __name__ == "__main__":
-    os.makedirs("./flask_session", exist_ok=True)
     app.run(debug=True, port=5000)
