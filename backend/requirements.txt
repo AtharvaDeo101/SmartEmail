@@ -9,3 +9,9 @@ huggingface_hub==0.26.0
 beautifulsoup4==4.13.3
 python-dotenv==1.2.2
 bs4
+
+pytest
+pytest-cov
+flake8
+black
+isort
