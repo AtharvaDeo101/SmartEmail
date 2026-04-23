@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
-
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
 const navLinks = [
   { name: "Write Mail", href: "/generate" },
@@ -18,6 +19,7 @@ export function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -29,7 +31,7 @@ export function Navigation() {
     const checkAuth = async () => {
       setCheckingAuth(true);
       try {
-        const res = await fetch("http://localhost:5000/me", {
+        const res = await fetch(`${BACKEND_URL}/me`, {
           credentials: "include",
         });
         if (res.ok) {
@@ -49,7 +51,7 @@ export function Navigation() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:5000/logout", {
+      await fetch(`${BACKEND_URL}/logout`, {
         method: "POST",
         credentials: "include",
       });
@@ -57,7 +59,7 @@ export function Navigation() {
       // silently fail
     } finally {
       setIsAuthenticated(false);
-      window.location.href = "/";
+      router.replace("/");
     }
   };
 
@@ -88,7 +90,6 @@ export function Navigation() {
             >
               MailAPT
             </span>
-
           </a>
 
           {/* Desktop nav links — only when authenticated */}
@@ -134,7 +135,6 @@ export function Navigation() {
                 </Button>
               </>
             ) : (
-              // ✅ Changed: points to /login (Next.js page), not Flask directly
               <Button
                 size="sm"
                 className={`bg-primary hover:bg-primary/90 text-primary-foreground rounded-full transition-all duration-500 ${
@@ -171,7 +171,6 @@ export function Navigation() {
           style={{ top: 0 }}
         >
           <div className="flex flex-col h-full px-8 pt-28 pb-8">
-            {/* Nav links only when authenticated */}
             {!checkingAuth && isAuthenticated && (
               <div className="flex-1 flex flex-col justify-center gap-8">
                 {navLinks.map((link, i) => (
@@ -194,7 +193,6 @@ export function Navigation() {
               </div>
             )}
 
-            {/* Bottom CTA */}
             <div
               className={`flex gap-4 pt-8 border-t border-foreground/10 transition-all duration-500 ${
                 isMobileMenuOpen
@@ -222,7 +220,6 @@ export function Navigation() {
                   </Button>
                 </>
               ) : (
-                // ✅ Changed: points to /login (Next.js page), not Flask directly
                 <Button
                   className="flex-1 bg-primary text-primary-foreground rounded-full h-14 text-base"
                   onClick={() => setIsMobileMenuOpen(false)}

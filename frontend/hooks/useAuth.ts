@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
-export function useAuth() {
+export function useAuth(redirectTo: string = "/generate") {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const router = useRouter();
 
@@ -29,7 +29,7 @@ export function useAuth() {
       router.replace("/login");
     };
     check();
-  }, [router]);
+  }, [router, redirectTo]);
 
   return isAuthenticated;
 }

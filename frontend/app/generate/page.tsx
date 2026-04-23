@@ -30,9 +30,8 @@ import {
   Code,
 } from "lucide-react";
 
-const API = "http://localhost:5000";
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
-// ── Types ──────────────────────────────────────────────────────────────────
 
 interface ChatMessage {
   id: string;
