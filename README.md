@@ -9,7 +9,7 @@ This significantly reduces the time required to write emails manually. It improv
 
 
 
-<img width="604" height="554" alt="logo" src="https://github.com/user-attachments/assets/a535c5da-f317-4866-88c6-9ff153cc5d7a" />
+<img width="350" height="350" alt="logo" src="https://github.com/user-attachments/assets/a535c5da-f317-4866-88c6-9ff153cc5d7a" />
 
 
 
